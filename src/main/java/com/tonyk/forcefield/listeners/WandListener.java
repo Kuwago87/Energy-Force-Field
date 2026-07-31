@@ -93,7 +93,7 @@ public final class WandListener implements Listener {
                 && action != Action.LEFT_CLICK_AIR && action != Action.RIGHT_CLICK_AIR) {
             return;
         }
-        if (!player.hasPermission("forcefield.use")) {
+        if (!player.hasPermission("forcefield.tool.rod")) {
             messages.send(player, "no-permission");
             return;
         }
@@ -149,6 +149,11 @@ public final class WandListener implements Listener {
     }
 
     private void createFromSelection(Player player) {
+        if (!player.hasPermission("forcefield.create")) {
+            messages.send(player, "no-permission");
+            selection.clear(player);
+            return;
+        }
         if (!selection.hasFullSelection(player)) {
             messages.send(player, "need-selection");
             return;
@@ -178,11 +183,15 @@ public final class WandListener implements Listener {
             LecternItem.giveSet(plugin, player, zone, lecternCount);
             player.sendMessage(Component.text("You've been given " + lecternCount
                     + " lectern(s) linked to '" + zone.getName()
-                    + "' - place them and left-click to toggle it.", NamedTextColor.AQUA));
+                    + "' - place them and right-click to toggle it.", NamedTextColor.AQUA));
         }
     }
 
     private void deleteNearest(Player player) {
+        if (!player.hasPermission("forcefield.delete")) {
+            messages.send(player, "no-permission");
+            return;
+        }
         ForceFieldZone zone = fields.findNearestZone(player.getLocation(), toggleRange());
         if (zone == null) {
             player.sendMessage(Component.text("No Energy Force Field within range.", NamedTextColor.GRAY));

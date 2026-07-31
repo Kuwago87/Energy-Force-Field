@@ -50,15 +50,16 @@ public final class ToolsGuiListener implements Listener {
         }
 
         int slot = event.getSlot();
-        if (slot != ToolsMenu.ROD_SLOT && slot != ToolsMenu.CRYSTAL_SLOT && slot != ToolsMenu.BOOK_SLOT
-                && slot != ToolsMenu.ADMIN_BOOK_SLOT) {
+        String requiredPermission = permissionFor(slot);
+        if (requiredPermission == null) {
             // Filler pane slot - don't let it be taken.
             event.setCancelled(true);
             return;
         }
-        if (slot == ToolsMenu.ADMIN_BOOK_SLOT && !player.hasPermission("forcefield.admin")) {
-            // Only ever holds the admin book for admins - for everyone else this
-            // slot is just a filler pane, which should never be pickable.
+        if (!player.hasPermission(requiredPermission)) {
+            // ToolsMenu only ever puts a real item here for a player who has
+            // this permission - for everyone else this slot is just a filler
+            // pane, which should never be pickable.
             event.setCancelled(true);
             return;
         }
@@ -118,6 +119,23 @@ public final class ToolsGuiListener implements Listener {
         }
         if (slot == ToolsMenu.ADMIN_BOOK_SLOT) {
             return AdminBookItem.create(plugin);
+        }
+        return null;
+    }
+
+    /** The permission ToolsMenu requires before it'll put a real item in this slot, or null for a filler-only slot. */
+    private String permissionFor(int slot) {
+        if (slot == ToolsMenu.ROD_SLOT) {
+            return "forcefield.tool.rod";
+        }
+        if (slot == ToolsMenu.CRYSTAL_SLOT) {
+            return "forcefield.tool.crystal";
+        }
+        if (slot == ToolsMenu.BOOK_SLOT) {
+            return "forcefield.tool.book";
+        }
+        if (slot == ToolsMenu.ADMIN_BOOK_SLOT) {
+            return "forcefield.admin";
         }
         return null;
     }

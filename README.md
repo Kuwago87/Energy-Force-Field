@@ -189,10 +189,30 @@ handy for a sci-fi control panel next to the door.
 
 ## Permissions
 
+Every op-run server works exactly as before with zero setup - all nodes below
+default to `op`. If you're running a permissions plugin (LuckPerms, etc.) and
+want non-op groups to use EFF without risking grief, grant the specific nodes
+you trust that group with instead of handing out `forcefield.admin`.
+
 | Node | Default | Grants |
 |---|---|---|
-| `forcefield.use` | op | `/eff_tools`, the rod/remote, and managing your own zones |
-| `forcefield.admin` | op | Create, remove, link/unlink, and reload *any* zone (chat commands), plus toggle/delete zones owned by others |
+| `forcefield.*` | false | Every EFF permission - equivalent to `forcefield.admin` |
+| `forcefield.admin` | op | Manage *any* zone regardless of owner (chat commands, GUI, admin book), reassign ownership, link/unlink redstone, reload config - implies `forcefield.use` |
+| `forcefield.use` | op | Umbrella node: opens `/eff_tools` and implies every node below, so a plain op/no-permissions-plugin server needs nothing else |
+| `forcefield.tool.rod` | false | Pick up and use the Create/Delete rod |
+| `forcefield.tool.crystal` | false | Pick up and use the Remote On/Off crystal |
+| `forcefield.tool.book` | false | Pick up and use the "My Energy Force Fields" book |
+| `forcefield.create` | false | Create new zones (rod quick-create, `/forcefield create`) |
+| `forcefield.delete` | false | Delete your own zones (rod, GUI Delete button, `/forcefield remove`) |
+| `forcefield.rename` | false | Rename your own zones |
+| `forcefield.modify` | false | Toggle your own zones on/off (remote, lever, lecterns, `/forcefield toggle`), change public/private access, get replacement lecterns |
+
+Item nodes and action nodes are independent, so you can hand a group the rod
+without letting them delete anything, or let a group toggle zones from
+lecterns without giving them the remote - whatever combination fits. Every
+action is still checked against ownership (or `forcefield.admin`) on top of
+these nodes: even with `forcefield.modify`, a player can't toggle a zone they
+don't own unless it's public or they're an admin.
 
 ## Configuration (`config.yml`)
 

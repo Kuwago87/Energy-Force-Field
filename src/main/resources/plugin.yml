@@ -1,8 +1,8 @@
 name: EFF
-version: '1.1.3'
+version: '1.1.5'
 main: com.tonyk.forcefield.ForceFieldPlugin
 description: Energy Force Field (EFF) - Star Trek style shield barriers with an in-game GUI.
-author: Tony
+author: Kuwago23
 prefix: EFF
 api-version: '26.2'
 load: POSTWORLD
@@ -29,9 +29,56 @@ commands:
     permission: forcefield.use
 
 permissions:
+  forcefield.*:
+    description: Grants every EFF permission - equivalent to forcefield.admin
+    default: false
+    children:
+      forcefield.admin: true
+
   forcefield.admin:
-    description: Create, remove, link and reload any Energy Force Field zone
+    description: Manage any Energy Force Field zone regardless of owner (chat commands, GUI, admin book), reassign ownership, and reload config - implies forcefield.use
     default: op
+    children:
+      forcefield.use: true
+
+  # Baseline "can use EFF at all" node: opens /eff_tools and lets you manage
+  # your OWN zones. Grants every tool/action node below by default, so a
+  # server with no permissions plugin behaves exactly as before - assign
+  # this alone (instead of forcefield.admin) for regular trusted players.
+  # To restrict a specific group to only some of these, grant the tool/action
+  # nodes you want individually instead of this umbrella node (or grant this
+  # one and negate specific children in your permissions plugin).
   forcefield.use:
-    description: Open the EFF Tools GUI, use its items, and manage your own zones
+    description: Open /eff_tools and manage your own zones - implies every forcefield.tool.* and action node
     default: op
+    children:
+      forcefield.tool.rod: true
+      forcefield.tool.crystal: true
+      forcefield.tool.book: true
+      forcefield.create: true
+      forcefield.delete: true
+      forcefield.rename: true
+      forcefield.modify: true
+
+  forcefield.tool.rod:
+    description: Pick up and use the Create/Delete rod
+    default: false
+  forcefield.tool.crystal:
+    description: Pick up and use the Remote On/Off crystal
+    default: false
+  forcefield.tool.book:
+    description: Pick up and use the "My Energy Force Fields" book
+    default: false
+
+  forcefield.create:
+    description: Create new Energy Force Field zones (rod quick-create)
+    default: false
+  forcefield.delete:
+    description: Delete your own Energy Force Field zones (rod, GUI Delete button)
+    default: false
+  forcefield.rename:
+    description: Rename your own Energy Force Field zones
+    default: false
+  forcefield.modify:
+    description: Toggle your own zones on/off (remote, lever, lecterns), change public/private access, link/unlink redstone, and get replacement lecterns
+    default: false

@@ -75,7 +75,12 @@ public final class FieldsGuiListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        openList(event.getPlayer(), 0);
+        Player player = event.getPlayer();
+        if (!player.hasPermission("forcefield.tool.book")) {
+            messages.send(player, "no-permission");
+            return;
+        }
+        openList(player, 0);
     }
 
     @EventHandler
@@ -212,6 +217,11 @@ public final class FieldsGuiListener implements Listener {
         if (slot == FieldDetailMenu.BACK_SLOT) {
             Location lecternLocation = holder.getLecternLocation();
             if (lecternLocation != null) {
+                if (!player.hasPermission("forcefield.modify")) {
+                    messages.send(player, "no-permission");
+                    player.closeInventory();
+                    return;
+                }
                 removeLectern(player, lecternLocation);
                 player.closeInventory();
                 return;
@@ -233,6 +243,10 @@ public final class FieldsGuiListener implements Listener {
         }
 
         if (slot == FieldDetailMenu.RENAME_SLOT) {
+            if (!player.hasPermission("forcefield.rename")) {
+                messages.send(player, "no-permission");
+                return;
+            }
             player.closeInventory();
             selection.startRename(player, zone.getName());
             player.sendMessage(Component.text("Type the new name for '" + zone.getName()
@@ -246,6 +260,10 @@ public final class FieldsGuiListener implements Listener {
         } else if (slot == FieldDetailMenu.COMPASS_SLOT) {
             pointCompass(player, zone);
         } else if (slot == FieldDetailMenu.PUBLIC_SLOT) {
+            if (!player.hasPermission("forcefield.modify")) {
+                messages.send(player, "no-permission");
+                return;
+            }
             boolean makePublic = !zone.isPublic();
             fields.setPublic(zone, makePublic);
             player.sendMessage(Component.text("'" + zone.getName() + "' is now "
@@ -253,15 +271,27 @@ public final class FieldsGuiListener implements Listener {
                     makePublic ? NamedTextColor.GREEN : NamedTextColor.GRAY));
             openDetail(player, zone.getName(), holder.getReturnPage(), adminView);
         } else if (slot == FieldDetailMenu.LEVER_SLOT) {
+            if (!player.hasPermission("forcefield.modify")) {
+                messages.send(player, "no-permission");
+                return;
+            }
             boolean target = !zone.isEnabled();
             fields.setEnabled(zone, target);
             messages.send(player, target ? "zone-raised" : "zone-lowered", "name", zone.getName());
             openDetail(player, zone.getName(), holder.getReturnPage(), adminView);
         } else if (slot == FieldDetailMenu.LECTERN_SLOT) {
+            if (!player.hasPermission("forcefield.modify")) {
+                messages.send(player, "no-permission");
+                return;
+            }
             int count = Math.max(0, plugin.getConfig().getInt("lecterns-per-field", 2));
             LecternItem.giveSet(plugin, player, zone, count);
             player.sendMessage(Component.text("Gave you " + count + " lectern(s) linked to '" + zone.getName() + "'.", NamedTextColor.AQUA));
         } else if (slot == FieldDetailMenu.BARRIER_SLOT) {
+            if (!player.hasPermission("forcefield.delete")) {
+                messages.send(player, "no-permission");
+                return;
+            }
             fields.removeZone(zone.getName());
             messages.send(player, "zone-removed", "name", zone.getName());
             openListLike(player, holder.getReturnPage(), adminView);
@@ -271,6 +301,10 @@ public final class FieldsGuiListener implements Listener {
     private void finishRename(Player player, String oldName, String newName) {
         if (newName.equalsIgnoreCase("cancel")) {
             player.sendMessage(Component.text("Rename cancelled.", NamedTextColor.GRAY));
+            return;
+        }
+        if (!player.hasPermission("forcefield.rename")) {
+            player.sendMessage(Component.text("You don't have permission to do that.", NamedTextColor.RED));
             return;
         }
         ForceFieldZone zone = fields.getZone(oldName);

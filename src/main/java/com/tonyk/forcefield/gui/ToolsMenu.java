@@ -17,11 +17,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * Builds the "Energy Force Field Tools" GUI: a single row with the
- * Create/Delete rod, the On/Off remote crystal, and the tracking book, all
- * real, take-able items (creating a field via the rod also hands out
- * physical lecterns as its on/off switches - see LecternItem). Players with
- * forcefield.admin also get a fourth item, the admin "All Energy Force
- * Fields" book.
+ * Create/Delete rod, the On/Off remote crystal, and the tracking book
+ * (creating a field via the rod also hands out physical lecterns as its
+ * on/off switches - see LecternItem). Each item only appears for a player
+ * who actually has the matching forcefield.tool.* permission - a slot for
+ * an item you're not allowed to use is left as a plain filler pane, same
+ * treatment the admin book already got. Players with forcefield.admin also
+ * get that fourth item, the admin "All Energy Force Fields" book.
  */
 public final class ToolsMenu {
 
@@ -44,10 +46,15 @@ public final class ToolsMenu {
             inventory.setItem(slot, filler);
         }
 
-        inventory.setItem(ROD_SLOT, WandItem.create(plugin));
-        inventory.setItem(CRYSTAL_SLOT, OnOffCrystal.create(plugin));
-        inventory.setItem(BOOK_SLOT, BookItem.create(plugin));
-
+        if (player != null && player.hasPermission("forcefield.tool.rod")) {
+            inventory.setItem(ROD_SLOT, WandItem.create(plugin));
+        }
+        if (player != null && player.hasPermission("forcefield.tool.crystal")) {
+            inventory.setItem(CRYSTAL_SLOT, OnOffCrystal.create(plugin));
+        }
+        if (player != null && player.hasPermission("forcefield.tool.book")) {
+            inventory.setItem(BOOK_SLOT, BookItem.create(plugin));
+        }
         if (player != null && player.hasPermission("forcefield.admin")) {
             inventory.setItem(ADMIN_BOOK_SLOT, AdminBookItem.create(plugin));
         }

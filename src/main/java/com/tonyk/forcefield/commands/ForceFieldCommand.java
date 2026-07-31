@@ -82,7 +82,7 @@ public final class ForceFieldCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleWand(CommandSender sender) {
-        if (!requirePlayer(sender) || !requirePermission(sender, "forcefield.use")) {
+        if (!requirePlayer(sender) || !requirePermission(sender, "forcefield.tool.rod")) {
             return;
         }
         Player player = (Player) sender;
@@ -134,7 +134,7 @@ public final class ForceFieldCommand implements CommandExecutor, TabCompleter {
             LecternItem.giveSet(plugin, player, zone, lecternCount);
             player.sendMessage(Component.text("You've been given " + lecternCount
                     + " lectern(s) linked to '" + zone.getName()
-                    + "' - place them and left-click to toggle it.", NamedTextColor.AQUA));
+                    + "' - place them and right-click to toggle it.", NamedTextColor.AQUA));
         }
     }
 
@@ -156,7 +156,7 @@ public final class ForceFieldCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleToggle(CommandSender sender, String[] args) {
-        if (!requirePermission(sender, "forcefield.use")) {
+        if (!requirePermission(sender, "forcefield.modify")) {
             return;
         }
         if (args.length < 2) {
@@ -167,6 +167,11 @@ public final class ForceFieldCommand implements CommandExecutor, TabCompleter {
         ForceFieldZone zone = fields.getZone(name);
         if (zone == null) {
             messages.send(sender, "zone-not-found", "name", name);
+            return;
+        }
+        if (sender instanceof Player player
+                && !zone.isOwnedBy(player.getUniqueId()) && !player.hasPermission("forcefield.admin")) {
+            sender.sendMessage(Component.text("That Energy Force Field belongs to someone else.", NamedTextColor.RED));
             return;
         }
 

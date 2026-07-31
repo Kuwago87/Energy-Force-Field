@@ -1,4 +1,36 @@
 # EFF (Energy Force Field) configuration
+#
+# ============================================================================
+# PERMISSIONS (for reference only - these are NOT set in this file. Grant
+# them with your permissions plugin, e.g. LuckPerms, or rely on the "op"
+# defaults below if you don't use one.)
+# ============================================================================
+#
+# Every node defaults to "op", so an op-only server works with zero setup.
+# To let non-op players use EFF without risking grief, grant only the
+# specific nodes you trust them with instead of forcefield.admin.
+#
+#   forcefield.*             (default: false) - every EFF permission, same as forcefield.admin
+#   forcefield.admin         (default: op)    - manage ANY zone regardless of owner (chat commands,
+#                                                GUI, admin book), reassign ownership, link/unlink
+#                                                redstone, reload config - implies forcefield.use
+#   forcefield.use           (default: op)    - umbrella node: opens /eff_tools and implies every
+#                                                node below, so a plain op server needs nothing else
+#   forcefield.tool.rod      (default: false) - pick up and use the Create/Delete rod
+#   forcefield.tool.crystal  (default: false) - pick up and use the Remote On/Off crystal
+#   forcefield.tool.book     (default: false) - pick up and use the "My Energy Force Fields" book
+#   forcefield.create        (default: false) - create new zones (rod quick-create, /forcefield create)
+#   forcefield.delete        (default: false) - delete your own zones (rod, GUI Delete, /forcefield remove)
+#   forcefield.rename        (default: false) - rename your own zones
+#   forcefield.modify        (default: false) - toggle your own zones on/off (remote, lever, lecterns,
+#                                                /forcefield toggle), change public/private access,
+#                                                get replacement lecterns
+#
+# Item nodes and action nodes are independent - e.g. hand a group the rod
+# without letting them delete anything, or let a group toggle zones from
+# lecterns without giving them the remote. Every action also still requires
+# owning the zone (or forcefield.admin) on top of these nodes.
+# ============================================================================
 
 # The item used as the Create/Delete tool. Left-click cycles between setting
 # corner 1 and corner 2 (setting corner 2 immediately creates the field, then

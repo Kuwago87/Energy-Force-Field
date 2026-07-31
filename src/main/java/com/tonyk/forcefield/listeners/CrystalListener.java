@@ -54,11 +54,16 @@ public final class CrystalListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        if (!player.hasPermission("forcefield.use")) {
+        if (!player.hasPermission("forcefield.tool.crystal")) {
             messages.send(player, "no-permission");
             return;
         }
         event.setCancelled(true);
+
+        if (!player.hasPermission("forcefield.modify")) {
+            messages.send(player, "no-permission");
+            return;
+        }
 
         ForceFieldZone zone = fields.findFacingZone(player.getEyeLocation(), player.getEyeLocation().getDirection(), range());
         if (zone == null) {
