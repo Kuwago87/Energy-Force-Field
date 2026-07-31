@@ -1,0 +1,37 @@
+name: EFF
+version: '1.0.0'
+main: com.tonyk.forcefield.ForceFieldPlugin
+description: Energy Force Field (EFF) - Star Trek style shield barriers with an in-game GUI.
+author: Tony
+prefix: EFF
+api-version: '26.2'
+load: POSTWORLD
+
+commands:
+  forcefield:
+    description: Manage Energy Force Field zones from chat
+    usage: |
+      /forcefield wand
+      /forcefield create <name> [confirm]
+      /forcefield remove <name>
+      /forcefield toggle <name> [on|off]
+      /forcefield list
+      /forcefield info <name>
+      /forcefield link <name>
+      /forcefield unlink <name>
+      /forcefield reload
+    aliases: [ff, shield]
+    permission: forcefield.use
+  eff_tools:
+    description: Open the Energy Force Field Tools GUI
+    usage: /eff_tools
+    aliases: [eff, efftools]
+    permission: forcefield.use
+
+permissions:
+  forcefield.admin:
+    description: Create, remove, link and reload any Energy Force Field zone
+    default: op
+  forcefield.use:
+    description: Open the EFF Tools GUI, use its items, and manage your own zones
+    default: op

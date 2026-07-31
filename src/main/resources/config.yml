@@ -1,0 +1,79 @@
+# EFF (Energy Force Field) configuration
+
+# The item used as the Create/Delete tool. Left-click cycles between setting
+# corner 1 and corner 2 (setting corner 2 immediately creates the field, then
+# the cycle starts over); right-click deletes the nearest field. Must be a
+# valid Bukkit Material name.
+create-delete-rod-material: LIGHTNING_ROD
+
+# The item used as the On/Off remote (right-click toggles the nearest field
+# you're allowed to control). Must be a valid Bukkit Material name.
+on-off-crystal-material: END_CRYSTAL
+
+# How close (in blocks) the On/Off crystal and the Create/Delete rod's
+# right-click delete will look for a field to act on.
+toggle-tool-range: 8.0
+
+# How long (in milliseconds) a right-click delete confirmation stays valid -
+# you must right-click again on the same field within this window.
+delete-confirm-window-ms: 5000
+
+# Zones larger than this many blocks require "confirm" as an extra argument
+# to /forcefield create (the quick-create via the rod is always capped at
+# this size, with no confirm option, to avoid accidentally freezing the
+# server with a huge block-fill operation).
+max-volume-without-confirm: 5000
+
+# How often (in ticks, 20 ticks = 1 second) the ambient shimmer/hum effect
+# runs on every currently-raised field.
+ambient-interval-ticks: 40
+
+# How many shimmer particles are scattered across a raised field's surface
+# each ambient pass. Turn this down if you have a lot of large fields raised
+# at once and notice particle lag.
+ambient-particle-count: 60
+
+# How often (in ticks) the top and bottom edge of a raised field is re-traced
+# with particles. This is intentionally much more frequent than
+# ambient-interval-ticks - particles fade out after roughly a second, so a
+# short period here keeps the field's top/bottom boundary continuously
+# visible instead of flickering. Cost scales with a field's perimeter, not
+# its volume, so this stays cheap even for large fields.
+edge-outline-interval-ticks: 4
+
+# Radius (in blocks) within which players hear the ambient hum of a raised field.
+ambient-sound-radius: 16
+
+# Cooldown (in milliseconds) before a player gets another "the field resists you"
+# effect after punching/breaking a barrier block.
+resist-feedback-cooldown-ms: 800
+
+# Particle and sound names below are validated on startup. If your server's
+# Paper version doesn't recognize one, EFF falls back to a safe default and
+# logs a warning - it will never fail to load because of this. The field's
+# signature look uses the crackling sculk_charge_pop particle.
+effects:
+  activate-sound: BLOCK_BEACON_ACTIVATE
+  deactivate-sound: BLOCK_BEACON_DEACTIVATE
+  ambient-sound: BLOCK_BEACON_AMBIENT
+  resist-sound: ENTITY_ENDERMAN_TELEPORT
+  wall-particle: SCULK_CHARGE_POP
+  ambient-particle: SCULK_CHARGE_POP
+  resist-particle: SCULK_CHARGE_POP
+
+messages:
+  prefix: "&b&l[EFF]&r "
+  no-permission: "&cYou don't have permission to do that."
+  need-selection: "&cLeft-click two corners with the Create/Delete rod first."
+  zone-created: "&aEnergy Force Field '&f%name%&a' created (%blocks% blocks). It starts lowered."
+  zone-exists: "&cAn Energy Force Field named '&f%name%&c' already exists."
+  zone-not-found: "&cNo Energy Force Field named '&f%name%&c' found."
+  zone-removed: "&aEnergy Force Field '&f%name%&a' removed."
+  zone-raised: "&aEnergy Force Field '&f%name%&a' raised."
+  zone-lowered: "&eEnergy Force Field '&f%name%&e' lowered."
+  too-large: "&cThat selection is %blocks% blocks, which is over the %max% limit. Re-run with 'confirm' if you're sure: /forcefield create %name% confirm"
+  resisted: "&7The energy field resists your efforts."
+  link-start: "&eNow left-click the lever, button or redstone block you want to control '&f%name%&e' with."
+  link-set: "&aEnergy Force Field '&f%name%&a' is now linked to redstone at %location%."
+  link-cleared: "&eEnergy Force Field '&f%name%&e' is no longer linked to redstone."
+  reloaded: "&aEFF configuration and zones reloaded."
