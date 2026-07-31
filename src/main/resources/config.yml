@@ -100,12 +100,12 @@ max-volume-without-confirm: 5000
 
 # How often (in ticks, 20 ticks = 1 second) the ambient shimmer/hum effect
 # runs on every currently-raised field.
-ambient-interval-ticks: 40
+ambient-interval-ticks: 20
 
 # How many shimmer particles are scattered across a raised field's surface
 # each ambient pass. Turn this down if you have a lot of large fields raised
 # at once and notice particle lag.
-ambient-particle-count: 60
+ambient-particle-count: 240
 
 # How often (in ticks) the top and bottom edge of a raised field is re-traced
 # with particles. This is intentionally much more frequent than
