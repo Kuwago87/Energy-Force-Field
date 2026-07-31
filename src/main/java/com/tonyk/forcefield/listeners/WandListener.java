@@ -4,8 +4,8 @@ import com.tonyk.forcefield.manager.FieldManager;
 import com.tonyk.forcefield.manager.SelectionManager;
 import com.tonyk.forcefield.model.ForceFieldZone;
 import com.tonyk.forcefield.util.Cuboid;
+import com.tonyk.forcefield.util.LecternItem;
 import com.tonyk.forcefield.util.Messages;
-import com.tonyk.forcefield.util.OnOffCrystal;
 import com.tonyk.forcefield.util.WandItem;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -22,18 +22,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Handles the two Energy Force Field tools:
- * <ul>
- *   <li>Create/Delete rod - left-click cycles between setting corner 1 and
- *   corner 2: the first left-click sets corner 1, the next sets corner 2 and
- *   immediately creates the field, and the click after that starts a brand
- *   new corner 1 - so you never need to touch a second button to build a
- *   field. Right-click deletes the nearest field (with a confirmation
- *   click). It's also used for pointing an admin at a block to link a
- *   redstone trigger.</li>
- *   <li>On/Off crystal - right-click toggles the nearest field the player
- *   is allowed to control.</li>
- * </ul>
+ * Handles the Create/Delete rod: left-click cycles between setting corner 1
+ * and corner 2 (the first left-click sets corner 1, the next sets corner 2
+ * and immediately creates the field - handing the player two linked
+ * lecterns to place as its physical on/off switches - and the click after
+ * that starts a brand new corner 1, so you never need to touch a second
+ * button to build a field). Right-click deletes the nearest field (with a
+ * confirmation click). It's also used for pointing an admin at a block to
+ * link a redstone trigger.
  */
 public final class WandListener implements Listener {
 
@@ -61,6 +57,10 @@ public final class WandListener implements Listener {
         return plugin.getConfig().getLong("max-volume-without-confirm", 5000);
     }
 
+    private int lecternsPerField() {
+        return Math.max(0, plugin.getConfig().getInt("lecterns-per-field", 2));
+    }
+
     /** True if the player may manage (toggle/delete) this zone. */
     private boolean canManage(Player player, ForceFieldZone zone) {
         return zone.isOwnedBy(player.getUniqueId()) || player.hasPermission("forcefield.admin");
@@ -69,7 +69,7 @@ public final class WandListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onBlockDamage(BlockDamageEvent event) {
         ItemStack item = event.getItemInHand();
-        if (WandItem.isWand(plugin, item) || OnOffCrystal.isCrystal(plugin, item)) {
+        if (WandItem.isWand(plugin, item)) {
             event.setCancelled(true);
         }
     }
@@ -85,8 +85,6 @@ public final class WandListener implements Listener {
 
         if (WandItem.isWand(plugin, item)) {
             handleRod(event, player, action);
-        } else if (OnOffCrystal.isCrystal(plugin, item)) {
-            handleCrystal(event, player, action);
         }
     }
 
@@ -174,6 +172,14 @@ public final class WandListener implements Listener {
         ForceFieldZone zone = fields.createZone(name, cuboid, player.getUniqueId(), player.getName());
         selection.clear(player);
         messages.send(player, "zone-created", "name", zone.getName(), "blocks", String.valueOf(cuboid.volume()));
+
+        int lecternCount = lecternsPerField();
+        if (lecternCount > 0) {
+            LecternItem.giveSet(plugin, player, zone, lecternCount);
+            player.sendMessage(Component.text("You've been given " + lecternCount
+                    + " lectern(s) linked to '" + zone.getName()
+                    + "' - place them and left-click to toggle it.", NamedTextColor.AQUA));
+        }
     }
 
     private void deleteNearest(Player player) {
@@ -195,28 +201,4 @@ public final class WandListener implements Listener {
         }
     }
 
-    private void handleCrystal(PlayerInteractEvent event, Player player, Action action) {
-        if (action != Action.RIGHT_CLICK_BLOCK && action != Action.RIGHT_CLICK_AIR) {
-            return;
-        }
-        if (!player.hasPermission("forcefield.use")) {
-            messages.send(player, "no-permission");
-            return;
-        }
-        event.setCancelled(true);
-
-        ForceFieldZone zone = fields.findNearestZone(player.getLocation(), toggleRange());
-        if (zone == null) {
-            player.sendMessage(Component.text("No Energy Force Field within range.", NamedTextColor.GRAY));
-            return;
-        }
-        if (!canManage(player, zone)) {
-            player.sendMessage(Component.text("That Energy Force Field belongs to someone else.", NamedTextColor.RED));
-            return;
-        }
-
-        boolean target = !zone.isEnabled();
-        fields.setEnabled(zone, target);
-        messages.send(player, target ? "zone-raised" : "zone-lowered", "name", zone.getName());
-    }
 }

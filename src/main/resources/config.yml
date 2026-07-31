@@ -6,17 +6,59 @@
 # valid Bukkit Material name.
 create-delete-rod-material: LIGHTNING_ROD
 
-# The item used as the On/Off remote (right-click toggles the nearest field
-# you're allowed to control). Must be a valid Bukkit Material name.
+# The item used as the On/Off remote. Right-click while looking at a field
+# you're allowed to control (within crystal-remote-range) to toggle it - it
+# has to actually be in your line of sight, not just nearby. Must be a
+# valid Bukkit Material name.
 on-off-crystal-material: END_CRYSTAL
 
-# How close (in blocks) the On/Off crystal and the Create/Delete rod's
-# right-click delete will look for a field to act on.
+# How far (in blocks) the On/Off remote's line-of-sight check reaches.
+crystal-remote-range: 10.0
+
+# How many Force Field Lecterns (the physical on/off switches) a player
+# gets when creating a field, and how many the "Get Replacement Lecterns"
+# button in the field detail GUI hands out. Set to 0 to disable giving them
+# out automatically.
+lecterns-per-field: 2
+
+# How long (in milliseconds) between two left-clicks on the same lectern for
+# it to count as a "double left-click" and open the field edit menu, instead
+# of being treated as two separate single clicks.
+lectern-double-click-window-ms: 400
+
+# The icon used for each field entry in the "My Energy Force Fields" list
+# GUI (opened from the book slot in /eff_tools). Must be a valid Bukkit
+# Material name.
+fields-list-icon-material: NETHERITE_NAUTILUS_ARMOR
+
+# The item used as the fields-list book (right-click it to open the list).
+# Must be a valid Bukkit Material name.
+fields-book-material: WRITTEN_BOOK
+
+# The item used as the admin-only "All Energy Force Fields" book - only ever
+# handed out from /eff_tools to players with forcefield.admin, and shows
+# every field on the server regardless of owner. Must be a valid Bukkit
+# Material name.
+admin-fields-book-material: ENCHANTED_BOOK
+
+# How close (in blocks) the Create/Delete rod's right-click delete will
+# look for a field to act on.
 toggle-tool-range: 8.0
 
 # How long (in milliseconds) a right-click delete confirmation stays valid -
 # you must right-click again on the same field within this window.
 delete-confirm-window-ms: 5000
+
+# How long (in milliseconds) a Rename request stays open after clicking the
+# Rename button, waiting for you to type the new name in chat. If you send
+# any chat message after this window closes, it's treated as normal chat
+# instead of a name.
+rename-window-ms: 30000
+
+# How long (in milliseconds) a Change Owner request (admin book only) stays
+# open after clicking the player-head button, waiting for you to type the
+# new owner's exact username in chat. The target must be online.
+owner-change-window-ms: 30000
 
 # Zones larger than this many blocks require "confirm" as an extra argument
 # to /forcefield create (the quick-create via the rod is always capped at

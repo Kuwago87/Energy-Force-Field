@@ -1,7 +1,7 @@
 package com.tonyk.forcefield.gui;
 
-import com.tonyk.forcefield.manager.FieldManager;
-import com.tonyk.forcefield.util.FieldBook;
+import com.tonyk.forcefield.util.AdminBookItem;
+import com.tonyk.forcefield.util.BookItem;
 import com.tonyk.forcefield.util.OnOffCrystal;
 import com.tonyk.forcefield.util.WandItem;
 import org.bukkit.Material;
@@ -15,21 +15,20 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Handles the EFF Tools GUI. The rod, crystal, and book sit in fixed slots
- * as real, take-able items: a normal (or shift-) click picks one up like any
- * other inventory, so a player can grab all three in one visit instead of
- * re-running /eff_tools for each. The slot is refilled with a fresh item a
- * tick later, but only once it's confirmed empty - so nothing duplicates if
- * the player's inventory was full and the item never actually left.
+ * Handles the EFF Tools GUI. The rod, crystal, and book (and, for admins,
+ * the admin book) all sit in fixed slots as real, take-able items: a normal
+ * (or shift-) click picks one up like any other inventory, and the slot
+ * refills a tick later (only once confirmed empty, so nothing duplicates if
+ * the player's inventory was full). What each item then *does* once it's in
+ * hand is handled elsewhere (WandListener for the rod, CrystalListener for
+ * the remote, FieldsGuiListener for the books).
  */
 public final class ToolsGuiListener implements Listener {
 
     private final JavaPlugin plugin;
-    private final FieldManager fields;
 
-    public ToolsGuiListener(JavaPlugin plugin, FieldManager fields) {
+    public ToolsGuiListener(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.fields = fields;
     }
 
     @EventHandler
@@ -45,14 +44,21 @@ public final class ToolsGuiListener implements Listener {
             return;
         }
 
-        int slot = event.getSlot();
-        if (slot != ToolsMenu.ROD_SLOT && slot != ToolsMenu.CRYSTAL_SLOT && slot != ToolsMenu.BOOK_SLOT) {
-            // Filler pane slot - don't let it be taken.
+        if (!(event.getWhoClicked() instanceof Player player)) {
             event.setCancelled(true);
             return;
         }
 
-        if (!(event.getWhoClicked() instanceof Player player)) {
+        int slot = event.getSlot();
+        if (slot != ToolsMenu.ROD_SLOT && slot != ToolsMenu.CRYSTAL_SLOT && slot != ToolsMenu.BOOK_SLOT
+                && slot != ToolsMenu.ADMIN_BOOK_SLOT) {
+            // Filler pane slot - don't let it be taken.
+            event.setCancelled(true);
+            return;
+        }
+        if (slot == ToolsMenu.ADMIN_BOOK_SLOT && !player.hasPermission("forcefield.admin")) {
+            // Only ever holds the admin book for admins - for everyone else this
+            // slot is just a filler pane, which should never be pickable.
             event.setCancelled(true);
             return;
         }
@@ -78,7 +84,7 @@ public final class ToolsGuiListener implements Listener {
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             ItemStack current = topInventory.getItem(slot);
             if (current == null || current.getType() == Material.AIR) {
-                topInventory.setItem(slot, freshItemFor(slot, player));
+                topInventory.setItem(slot, freshItemFor(slot));
             }
         });
     }
@@ -100,7 +106,7 @@ public final class ToolsGuiListener implements Listener {
         }
     }
 
-    private ItemStack freshItemFor(int slot, Player player) {
+    private ItemStack freshItemFor(int slot) {
         if (slot == ToolsMenu.ROD_SLOT) {
             return WandItem.create(plugin);
         }
@@ -108,7 +114,10 @@ public final class ToolsGuiListener implements Listener {
             return OnOffCrystal.create(plugin);
         }
         if (slot == ToolsMenu.BOOK_SLOT) {
-            return FieldBook.build(fields, player);
+            return BookItem.create(plugin);
+        }
+        if (slot == ToolsMenu.ADMIN_BOOK_SLOT) {
+            return AdminBookItem.create(plugin);
         }
         return null;
     }

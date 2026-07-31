@@ -34,7 +34,7 @@ public final class ToolsCommand implements CommandExecutor {
             messages.send(player, "no-permission");
             return true;
         }
-        player.openInventory(ToolsMenu.create(plugin));
+        player.openInventory(ToolsMenu.create(plugin, player));
         return true;
     }
 }

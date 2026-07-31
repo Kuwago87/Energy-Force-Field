@@ -2,7 +2,10 @@ package com.tonyk.forcefield;
 
 import com.tonyk.forcefield.commands.ForceFieldCommand;
 import com.tonyk.forcefield.commands.ToolsCommand;
+import com.tonyk.forcefield.gui.FieldsGuiListener;
 import com.tonyk.forcefield.gui.ToolsGuiListener;
+import com.tonyk.forcefield.listeners.CrystalListener;
+import com.tonyk.forcefield.listeners.LecternListener;
 import com.tonyk.forcefield.listeners.ProtectionListener;
 import com.tonyk.forcefield.listeners.RedstoneListener;
 import com.tonyk.forcefield.listeners.WandListener;
@@ -12,11 +15,15 @@ import com.tonyk.forcefield.tasks.AmbientEffectTask;
 import com.tonyk.forcefield.tasks.EdgeOutlineTask;
 import com.tonyk.forcefield.util.EffectService;
 import com.tonyk.forcefield.util.Messages;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 public final class ForceFieldPlugin extends JavaPlugin {
+
+    /** bStats plugin id: https://bstats.org/plugin/bukkit/EFF/33044 */
+    private static final int BSTATS_PLUGIN_ID = 33044;
 
     private EffectService effects;
     private Messages messages;
@@ -24,10 +31,13 @@ public final class ForceFieldPlugin extends JavaPlugin {
     private SelectionManager selectionManager;
     private BukkitTask ambientTask;
     private BukkitTask edgeOutlineTask;
+    private Metrics metrics;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
+
+        this.metrics = new Metrics(this, BSTATS_PLUGIN_ID);
 
         this.effects = new EffectService(this);
         this.messages = new Messages(this);
@@ -41,7 +51,13 @@ public final class ForceFieldPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new RedstoneListener(this, fieldManager), this);
         getServer().getPluginManager().registerEvents(
-                new ToolsGuiListener(this, fieldManager), this);
+                new LecternListener(this, fieldManager, messages), this);
+        getServer().getPluginManager().registerEvents(
+                new CrystalListener(this, fieldManager, messages), this);
+        getServer().getPluginManager().registerEvents(
+                new ToolsGuiListener(this), this);
+        getServer().getPluginManager().registerEvents(
+                new FieldsGuiListener(this, fieldManager, selectionManager, messages), this);
 
         PluginCommand forcefieldCommand = getCommand("forcefield");
         if (forcefieldCommand != null) {
@@ -78,6 +94,9 @@ public final class ForceFieldPlugin extends JavaPlugin {
         }
         if (fieldManager != null) {
             fieldManager.save();
+        }
+        if (metrics != null) {
+            metrics.shutdown();
         }
     }
 }

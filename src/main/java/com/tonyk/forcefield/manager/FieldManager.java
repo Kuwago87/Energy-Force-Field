@@ -13,6 +13,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,6 +50,23 @@ public final class FieldManager {
 
     public ForceFieldZone getZone(String name) {
         return zones.get(name);
+    }
+
+    /**
+     * Looks up a zone by its stable internal id, rather than its (renameable)
+     * name. Used to resolve physical lecterns, which are linked by id so a
+     * rename never breaks an already-placed one.
+     */
+    public ForceFieldZone getZoneById(UUID id) {
+        if (id == null) {
+            return null;
+        }
+        for (ForceFieldZone zone : zones.values()) {
+            if (id.equals(zone.getId())) {
+                return zone;
+            }
+        }
+        return null;
     }
 
     public boolean exists(String name) {
@@ -89,6 +107,27 @@ public final class FieldManager {
         return nearest;
     }
 
+    /**
+     * Finds the zone the player is actually looking at, within maxRange
+     * blocks - a ray cast from {@code origin} along {@code direction},
+     * picking whichever zone it enters first. Unlike {@link #findNearestZone},
+     * this ignores fields that are merely nearby but not in view, so standing
+     * between two fields and aiming at one won't accidentally hit the other.
+     * Used by the On/Off remote.
+     */
+    public ForceFieldZone findFacingZone(Location origin, Vector direction, double maxRange) {
+        ForceFieldZone closest = null;
+        double closestDistance = Double.MAX_VALUE;
+        for (ForceFieldZone zone : zones.values()) {
+            double distance = zone.getCuboid().raycastDistance(origin, direction, maxRange);
+            if (distance >= 0 && distance < closestDistance) {
+                closest = zone;
+                closestDistance = distance;
+            }
+        }
+        return closest;
+    }
+
     public List<ForceFieldZone> getZonesOwnedBy(UUID uuid) {
         List<ForceFieldZone> result = new ArrayList<>();
         for (ForceFieldZone zone : zones.values()) {
@@ -118,6 +157,49 @@ public final class FieldManager {
     }
 
     /**
+     * Renames a zone, keeping the name-to-zone map key in sync. Returns false
+     * (and changes nothing) if oldName doesn't exist or newName is already
+     * taken by a different zone.
+     */
+    public boolean renameZone(String oldName, String newName) {
+        ForceFieldZone zone = zones.get(oldName);
+        if (zone == null) {
+            return false;
+        }
+        if (!oldName.equalsIgnoreCase(newName) && exists(newName)) {
+            return false;
+        }
+        zones.remove(oldName);
+        zone.setName(newName);
+        zones.put(newName, zone);
+        save();
+        return true;
+    }
+
+    /**
+     * Sets whether anyone can toggle this zone via its lecterns (true), or
+     * only the owner/an admin (false, the default).
+     */
+    public void setPublic(ForceFieldZone zone, boolean isPublic) {
+        zone.setPublic(isPublic);
+        save();
+    }
+
+    /**
+     * Transfers ownership of a zone to a different player. Used by the admin
+     * book's Change Owner button. Returns false if the zone doesn't exist.
+     */
+    public boolean changeOwner(String zoneName, UUID newOwnerUuid, String newOwnerName) {
+        ForceFieldZone zone = zones.get(zoneName);
+        if (zone == null) {
+            return false;
+        }
+        zone.setOwner(newOwnerUuid, newOwnerName);
+        save();
+        return true;
+    }
+
+    /**
      * Creates a new (initially lowered) zone, capturing the current block
      * states in the cuboid as the "shields down" baseline.
      */
@@ -138,7 +220,7 @@ public final class FieldManager {
             }
         }
 
-        ForceFieldZone zone = new ForceFieldZone(name, cuboid, false, baseline);
+        ForceFieldZone zone = new ForceFieldZone(UUID.randomUUID(), name, cuboid, false, baseline);
         zone.setOwner(ownerUuid, ownerName);
         zones.put(name, zone);
         save();
@@ -251,6 +333,7 @@ public final class FieldManager {
         if (zonesSection == null) {
             return;
         }
+        boolean assignedMissingId = false;
         for (String name : zonesSection.getKeys(false)) {
             ConfigurationSection z = zonesSection.getConfigurationSection(name);
             if (z == null) {
@@ -274,8 +357,26 @@ public final class FieldManager {
                     }
                 }
 
+                // Zones saved before ids existed won't have one yet - assign a
+                // fresh one now and make sure it gets written back to disk.
+                UUID id;
+                String idString = z.getString("id");
+                if (idString != null) {
+                    UUID parsed;
+                    try {
+                        parsed = UUID.fromString(idString);
+                    } catch (IllegalArgumentException ex) {
+                        parsed = UUID.randomUUID();
+                        assignedMissingId = true;
+                    }
+                    id = parsed;
+                } else {
+                    id = UUID.randomUUID();
+                    assignedMissingId = true;
+                }
+
                 Cuboid cuboid = new Cuboid(world, x1, y1, z1, x2, y2, z2);
-                ForceFieldZone zone = new ForceFieldZone(name, cuboid, enabled, baseline);
+                ForceFieldZone zone = new ForceFieldZone(id, name, cuboid, enabled, baseline);
 
                 ConfigurationSection redstone = z.getConfigurationSection("redstone");
                 if (redstone != null) {
@@ -291,10 +392,15 @@ public final class FieldManager {
                     }
                 }
 
+                zone.setPublic(z.getBoolean("public", false));
+
                 zones.put(name, zone);
             } catch (Exception ex) {
                 plugin.getLogger().log(Level.WARNING, "Failed to load force field zone '" + name + "' from fields.yml", ex);
             }
+        }
+        if (assignedMissingId) {
+            save();
         }
     }
 
@@ -303,6 +409,7 @@ public final class FieldManager {
         ConfigurationSection zonesSection = yaml.createSection("zones");
         for (ForceFieldZone zone : zones.values()) {
             ConfigurationSection z = zonesSection.createSection(zone.getName());
+            z.set("id", zone.getId().toString());
             Cuboid c = zone.getCuboid();
             z.set("world", c.getWorldName());
             z.set("x1", c.getMinX());
@@ -330,6 +437,8 @@ public final class FieldManager {
                 z.set("owner-uuid", zone.getOwnerUuid().toString());
                 z.set("owner-name", zone.getOwnerName());
             }
+
+            z.set("public", zone.isPublic());
         }
 
         try {

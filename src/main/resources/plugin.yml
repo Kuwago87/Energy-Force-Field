@@ -1,5 +1,5 @@
 name: EFF
-version: '1.0.0'
+version: '1.1.3'
 main: com.tonyk.forcefield.ForceFieldPlugin
 description: Energy Force Field (EFF) - Star Trek style shield barriers with an in-game GUI.
 author: Tony

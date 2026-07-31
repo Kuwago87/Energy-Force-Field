@@ -3,6 +3,7 @@ package com.tonyk.forcefield.util;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,6 +86,57 @@ public final class Cuboid {
 
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * Distance along {@code direction} from {@code origin} to where a ray
+     * first enters this cuboid (the classic "slab method" ray/AABB test),
+     * or -1 if the ray never enters it within {@code maxDistance} (including
+     * if it's simply pointed the wrong way, or is in a different world).
+     * Used by the On/Off remote to find the field the player is actually
+     * looking at, not just the nearest one.
+     */
+    public double raycastDistance(Location origin, Vector direction, double maxDistance) {
+        if (origin.getWorld() == null || !origin.getWorld().getName().equals(world)) {
+            return -1;
+        }
+
+        double tMin = 0.0;
+        double tMax = maxDistance;
+
+        double[] originCoords = {origin.getX(), origin.getY(), origin.getZ()};
+        double[] dirCoords = {direction.getX(), direction.getY(), direction.getZ()};
+        double[] boundsMin = {minX, minY, minZ};
+        double[] boundsMax = {maxX + 1.0, maxY + 1.0, maxZ + 1.0};
+
+        for (int axis = 0; axis < 3; axis++) {
+            double o = originCoords[axis];
+            double d = dirCoords[axis];
+            double lo = boundsMin[axis];
+            double hi = boundsMax[axis];
+
+            if (Math.abs(d) < 1e-9) {
+                if (o < lo || o > hi) {
+                    return -1;
+                }
+                continue;
+            }
+
+            double t1 = (lo - o) / d;
+            double t2 = (hi - o) / d;
+            if (t1 > t2) {
+                double tmp = t1;
+                t1 = t2;
+                t2 = tmp;
+            }
+            tMin = Math.max(tMin, t1);
+            tMax = Math.min(tMax, t2);
+            if (tMin > tMax) {
+                return -1;
+            }
+        }
+
+        return tMin;
     }
 
     /**

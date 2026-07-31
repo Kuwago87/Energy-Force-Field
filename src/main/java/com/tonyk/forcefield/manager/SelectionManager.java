@@ -18,6 +18,10 @@ public final class SelectionManager {
     private final Map<UUID, String> pendingLink = new HashMap<>();
     private final Map<UUID, String> pendingDeleteZone = new HashMap<>();
     private final Map<UUID, Long> pendingDeleteAt = new HashMap<>();
+    private final Map<UUID, String> pendingRenameZone = new HashMap<>();
+    private final Map<UUID, Long> pendingRenameAt = new HashMap<>();
+    private final Map<UUID, String> pendingOwnerChangeZone = new HashMap<>();
+    private final Map<UUID, Long> pendingOwnerChangeAt = new HashMap<>();
 
     public void setPos1(Player player, Location loc) {
         pos1.put(player.getUniqueId(), loc);
@@ -81,5 +85,72 @@ public final class SelectionManager {
         pendingDeleteZone.put(id, zoneName);
         pendingDeleteAt.put(id, now);
         return false;
+    }
+
+    /**
+     * Marks that the player just clicked "Rename" for {@code zoneName} - their
+     * next chat message should be captured as the new name.
+     */
+    public void startRename(Player player, String zoneName) {
+        UUID id = player.getUniqueId();
+        pendingRenameZone.put(id, zoneName);
+        pendingRenameAt.put(id, System.currentTimeMillis());
+    }
+
+    public boolean hasPendingRename(Player player) {
+        return pendingRenameZone.containsKey(player.getUniqueId());
+    }
+
+    /**
+     * Consumes (removes) the pending rename request, one-shot - the very next
+     * chat message always clears it, whether or not it's used. Returns the
+     * zone name to rename, or null if there was no pending request or it had
+     * already expired past {@code windowMs} (in which case the caller should
+     * let the chat message through normally instead of treating it as a name).
+     */
+    public String consumePendingRename(Player player, long windowMs) {
+        UUID id = player.getUniqueId();
+        String zoneName = pendingRenameZone.remove(id);
+        Long at = pendingRenameAt.remove(id);
+        if (zoneName == null || at == null) {
+            return null;
+        }
+        if (System.currentTimeMillis() - at > windowMs) {
+            return null;
+        }
+        return zoneName;
+    }
+
+    /**
+     * Marks that the player just clicked "Change Owner" for {@code zoneName}
+     * (admin book only) - their next chat message should be captured as the
+     * target player's name.
+     */
+    public void startOwnerChange(Player player, String zoneName) {
+        UUID id = player.getUniqueId();
+        pendingOwnerChangeZone.put(id, zoneName);
+        pendingOwnerChangeAt.put(id, System.currentTimeMillis());
+    }
+
+    public boolean hasPendingOwnerChange(Player player) {
+        return pendingOwnerChangeZone.containsKey(player.getUniqueId());
+    }
+
+    /**
+     * Consumes (removes) the pending owner-change request, one-shot. Returns
+     * the zone name to re-own, or null if there was no pending request or it
+     * had already expired past {@code windowMs}.
+     */
+    public String consumePendingOwnerChange(Player player, long windowMs) {
+        UUID id = player.getUniqueId();
+        String zoneName = pendingOwnerChangeZone.remove(id);
+        Long at = pendingOwnerChangeAt.remove(id);
+        if (zoneName == null || at == null) {
+            return null;
+        }
+        if (System.currentTimeMillis() - at > windowMs) {
+            return null;
+        }
+        return zoneName;
     }
 }

@@ -13,10 +13,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.List;
 
 /**
- * Creates and identifies the "On / Off" remote - an End Crystal by default -
- * used to raise or lower the nearest Energy Force Field. Tagged with
- * persistent data so it can be told apart from a plain material item of the
- * same type (and so it never triggers vanilla End Crystal placement).
+ * Creates and identifies the "Remote On / Off" - an End Crystal by default -
+ * used to raise or lower whichever Energy Force Field the player is facing,
+ * within range (see CrystalListener). Tagged with persistent data so it can
+ * be told apart from a plain material item of the same type (and so it
+ * never triggers vanilla End Crystal placement).
  */
 public final class OnOffCrystal {
 
@@ -35,12 +36,16 @@ public final class OnOffCrystal {
             material = Material.END_CRYSTAL;
         }
 
+        double range = plugin.getConfig().getDouble("crystal-remote-range", 10.0);
+        String rangeText = range == Math.floor(range) ? String.valueOf((long) range) : String.valueOf(range);
+
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("On / Off", NamedTextColor.LIGHT_PURPLE)
+        meta.displayName(Component.text("Remote On / Off", NamedTextColor.LIGHT_PURPLE)
                 .decoration(TextDecoration.ITALIC, false));
         meta.lore(List.of(
-                Component.text("Right-click near your field to toggle it", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+                Component.text("Right-click while looking at your field", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+                Component.text("within " + rangeText + " block radius to toggle it", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
         ));
         meta.getPersistentDataContainer().set(
                 new NamespacedKey(plugin, KEY), PersistentDataType.BYTE, (byte) 1);

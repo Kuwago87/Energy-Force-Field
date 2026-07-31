@@ -6,7 +6,7 @@
 
     <groupId>com.tonyk</groupId>
     <artifactId>forcefield</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.3</version>
     <packaging>jar</packaging>
 
     <name>EFF</name>
@@ -31,6 +31,15 @@
             <version>[26.2.build,)</version>
             <scope>provided</scope>
         </dependency>
+        <!-- bStats (https://bstats.org/plugin/bukkit/EFF/33044) - anonymous usage
+             metrics. Shaded + relocated below so it can't clash with any other
+             plugin on the server that also bundles bStats. -->
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-bukkit</artifactId>
+            <version>3.2.1</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -52,6 +61,41 @@
                 <configuration>
                     <encoding>UTF-8</encoding>
                 </configuration>
+            </plugin>
+            <plugin>
+                <!-- Shades bStats into the plugin jar (paper-api stays "provided"
+                     so it's never bundled) and relocates its package so it can't
+                     collide with a different bStats version another plugin ships. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.bstats</pattern>
+                                    <shadedPattern>com.tonyk.forcefield.libs.bstats</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

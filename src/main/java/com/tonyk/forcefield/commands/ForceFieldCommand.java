@@ -5,6 +5,7 @@ import com.tonyk.forcefield.manager.SelectionManager;
 import com.tonyk.forcefield.model.ForceFieldZone;
 import com.tonyk.forcefield.util.Cuboid;
 import com.tonyk.forcefield.util.EffectService;
+import com.tonyk.forcefield.util.LecternItem;
 import com.tonyk.forcefield.util.Messages;
 import com.tonyk.forcefield.util.WandItem;
 import net.kyori.adventure.text.Component;
@@ -127,6 +128,14 @@ public final class ForceFieldCommand implements CommandExecutor, TabCompleter {
         ForceFieldZone zone = fields.createZone(name, cuboid, player.getUniqueId(), player.getName());
         selection.clear(player);
         messages.send(sender, "zone-created", "name", zone.getName(), "blocks", String.valueOf(cuboid.volume()));
+
+        int lecternCount = Math.max(0, plugin.getConfig().getInt("lecterns-per-field", 2));
+        if (lecternCount > 0) {
+            LecternItem.giveSet(plugin, player, zone, lecternCount);
+            player.sendMessage(Component.text("You've been given " + lecternCount
+                    + " lectern(s) linked to '" + zone.getName()
+                    + "' - place them and left-click to toggle it.", NamedTextColor.AQUA));
+        }
     }
 
     private void handleRemove(CommandSender sender, String[] args) {

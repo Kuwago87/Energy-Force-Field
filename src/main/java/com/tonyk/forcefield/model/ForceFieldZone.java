@@ -13,7 +13,12 @@ import java.util.UUID;
  */
 public final class ForceFieldZone {
 
-    private final String name;
+    // Stable identity that never changes, even across renames - this is what
+    // physical lecterns are linked to (not the name), so renaming a field
+    // never breaks an already-placed lectern.
+    private final UUID id;
+
+    private String name;
     private final Cuboid cuboid;
     private boolean enabled;
 
@@ -30,15 +35,30 @@ public final class ForceFieldZone {
     private UUID ownerUuid;
     private String ownerName;
 
-    public ForceFieldZone(String name, Cuboid cuboid, boolean enabled, Map<String, String> baseline) {
+    // Whether anyone (not just the owner/an admin) can toggle this field via
+    // one of its physical lecterns. Defaults to false (private) - the owner
+    // has to deliberately open it up.
+    private boolean publicAccess;
+
+    public ForceFieldZone(UUID id, String name, Cuboid cuboid, boolean enabled, Map<String, String> baseline) {
+        this.id = id;
         this.name = name;
         this.cuboid = cuboid;
         this.enabled = enabled;
         this.baseline = new LinkedHashMap<>(baseline);
     }
 
+    public UUID getId() {
+        return id;
+    }
+
     public String getName() {
         return name;
+    }
+
+    /** Prefer FieldManager#renameZone, which keeps the manager's name-to-zone map key in sync with this. */
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Cuboid getCuboid() {
@@ -110,5 +130,13 @@ public final class ForceFieldZone {
 
     public boolean isOwnedBy(UUID uuid) {
         return ownerUuid != null && uuid != null && ownerUuid.equals(uuid);
+    }
+
+    public boolean isPublic() {
+        return publicAccess;
+    }
+
+    public void setPublic(boolean publicAccess) {
+        this.publicAccess = publicAccess;
     }
 }
