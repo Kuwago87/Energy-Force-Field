@@ -2,6 +2,7 @@ package com.tonyk.forcefield.gui;
 
 import com.tonyk.forcefield.manager.FieldManager;
 import com.tonyk.forcefield.manager.SelectionManager;
+import com.tonyk.forcefield.model.FieldShape;
 import com.tonyk.forcefield.model.ForceFieldZone;
 import com.tonyk.forcefield.util.AdminBookItem;
 import com.tonyk.forcefield.util.BookItem;
@@ -102,7 +103,7 @@ public final class FieldsGuiListener implements Listener {
             messages.send(player, "no-permission");
             return;
         }
-        openAdminList(player, 0);
+        openAdminCategoryChooser(player);
     }
 
     @EventHandler
@@ -113,14 +114,37 @@ public final class FieldsGuiListener implements Listener {
             handleListClick(event, listHolder);
         } else if (holder instanceof FieldDetailHolder detailHolder) {
             handleDetailClick(event, detailHolder);
+        } else if (holder instanceof AdminCategoryHolder) {
+            handleCategoryClick(event);
         }
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         InventoryHolder holder = event.getView().getTopInventory().getHolder();
-        if (holder instanceof FieldsListHolder || holder instanceof FieldDetailHolder) {
+        if (holder instanceof FieldsListHolder || holder instanceof FieldDetailHolder || holder instanceof AdminCategoryHolder) {
             event.setCancelled(true);
+        }
+    }
+
+    private void handleCategoryClick(InventoryClickEvent event) {
+        event.setCancelled(true);
+        Inventory top = event.getView().getTopInventory();
+        if (event.getClickedInventory() != top) {
+            return;
+        }
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (!player.hasPermission("forcefield.admin")) {
+            player.closeInventory();
+            return;
+        }
+        int slot = event.getSlot();
+        if (slot == AdminCategoryMenu.ROD_SLOT) {
+            openAdminList(player, 0, FieldShape.CUBOID);
+        } else if (slot == AdminCategoryMenu.BEACON_SLOT) {
+            openAdminList(player, 0, FieldShape.SPHERE);
         }
     }
 
@@ -170,14 +194,19 @@ public final class FieldsGuiListener implements Listener {
             player.closeInventory();
             return;
         }
+        FieldShape categoryFilter = holder.getCategoryFilter();
 
         int slot = event.getSlot();
+        if (slot == FieldsListMenu.BACK_TO_CATEGORIES_SLOT && adminView && categoryFilter != null) {
+            openAdminCategoryChooser(player);
+            return;
+        }
         if (slot == FieldsListMenu.PREV_SLOT) {
-            openListLike(player, holder.getPage() - 1, adminView);
+            openListLike(player, holder.getPage() - 1, adminView, categoryFilter);
             return;
         }
         if (slot == FieldsListMenu.NEXT_SLOT) {
-            openListLike(player, holder.getPage() + 1, adminView);
+            openListLike(player, holder.getPage() + 1, adminView, categoryFilter);
             return;
         }
         if (slot >= FieldsListMenu.PAGE_SIZE) {
@@ -192,10 +221,10 @@ public final class FieldsGuiListener implements Listener {
         String zoneName = names.get(index);
         if (fields.getZone(zoneName) == null) {
             player.sendMessage(Component.text("That field no longer exists.", NamedTextColor.RED));
-            openListLike(player, holder.getPage(), adminView);
+            openListLike(player, holder.getPage(), adminView, categoryFilter);
             return;
         }
-        openDetail(player, zoneName, holder.getPage(), adminView);
+        openDetail(player, zoneName, holder.getPage(), adminView, categoryFilter);
     }
 
     private void handleDetailClick(InventoryClickEvent event, FieldDetailHolder holder) {
@@ -212,6 +241,7 @@ public final class FieldsGuiListener implements Listener {
             player.closeInventory();
             return;
         }
+        FieldShape categoryFilter = holder.getCategoryFilter();
 
         int slot = event.getSlot();
         if (slot == FieldDetailMenu.BACK_SLOT) {
@@ -226,14 +256,14 @@ public final class FieldsGuiListener implements Listener {
                 player.closeInventory();
                 return;
             }
-            openListLike(player, holder.getReturnPage(), adminView);
+            openListLike(player, holder.getReturnPage(), adminView, categoryFilter);
             return;
         }
 
         ForceFieldZone zone = fields.getZone(holder.getZoneName());
         if (zone == null) {
             player.sendMessage(Component.text("That field no longer exists.", NamedTextColor.RED));
-            openListLike(player, holder.getReturnPage(), adminView);
+            openListLike(player, holder.getReturnPage(), adminView, categoryFilter);
             return;
         }
         if (!zone.isOwnedBy(player.getUniqueId()) && !player.hasPermission("forcefield.admin")) {
@@ -269,7 +299,7 @@ public final class FieldsGuiListener implements Listener {
             player.sendMessage(Component.text("'" + zone.getName() + "' is now "
                     + (makePublic ? "public - anyone can toggle it from its lecterns." : "private - only you/admins can toggle it."),
                     makePublic ? NamedTextColor.GREEN : NamedTextColor.GRAY));
-            openDetail(player, zone.getName(), holder.getReturnPage(), adminView);
+            openDetail(player, zone.getName(), holder.getReturnPage(), adminView, categoryFilter);
         } else if (slot == FieldDetailMenu.LEVER_SLOT) {
             if (!player.hasPermission("forcefield.modify")) {
                 messages.send(player, "no-permission");
@@ -278,7 +308,7 @@ public final class FieldsGuiListener implements Listener {
             boolean target = !zone.isEnabled();
             fields.setEnabled(zone, target);
             messages.send(player, target ? "zone-raised" : "zone-lowered", "name", zone.getName());
-            openDetail(player, zone.getName(), holder.getReturnPage(), adminView);
+            openDetail(player, zone.getName(), holder.getReturnPage(), adminView, categoryFilter);
         } else if (slot == FieldDetailMenu.LECTERN_SLOT) {
             if (!player.hasPermission("forcefield.modify")) {
                 messages.send(player, "no-permission");
@@ -294,7 +324,7 @@ public final class FieldsGuiListener implements Listener {
             }
             fields.removeZone(zone.getName());
             messages.send(player, "zone-removed", "name", zone.getName());
-            openListLike(player, holder.getReturnPage(), adminView);
+            openListLike(player, holder.getReturnPage(), adminView, categoryFilter);
         }
     }
 
@@ -390,22 +420,27 @@ public final class FieldsGuiListener implements Listener {
                 () -> player.openInventory(FieldsListMenu.create(plugin, fields, player, page)));
     }
 
-    private void openAdminList(Player player, int page) {
+    private void openAdminCategoryChooser(Player player) {
         plugin.getServer().getScheduler().runTask(plugin,
-                () -> player.openInventory(FieldsListMenu.createAll(plugin, fields, page)));
+                () -> player.openInventory(AdminCategoryMenu.create(fields)));
+    }
+
+    private void openAdminList(Player player, int page, FieldShape categoryFilter) {
+        plugin.getServer().getScheduler().runTask(plugin,
+                () -> player.openInventory(FieldsListMenu.createAll(plugin, fields, page, categoryFilter)));
     }
 
     /** Reopens whichever list ({@link #openList} or {@link #openAdminList}) the player came from. */
-    private void openListLike(Player player, int page, boolean adminView) {
+    private void openListLike(Player player, int page, boolean adminView, FieldShape categoryFilter) {
         if (adminView) {
-            openAdminList(player, page);
+            openAdminList(player, page, categoryFilter);
         } else {
             openList(player, page);
         }
     }
 
-    private void openDetail(Player player, String zoneName, int returnPage, boolean adminView) {
+    private void openDetail(Player player, String zoneName, int returnPage, boolean adminView, FieldShape categoryFilter) {
         plugin.getServer().getScheduler().runTask(plugin,
-                () -> player.openInventory(FieldDetailMenu.create(fields, zoneName, returnPage, adminView)));
+                () -> player.openInventory(FieldDetailMenu.create(fields, zoneName, returnPage, adminView, categoryFilter)));
     }
 }

@@ -29,8 +29,9 @@ your server's `plugins/` folder and (re)start the server.
 
    | Item | Tag | Does |
    |---|---|---|
-   | Lightning Rod | Create / Delete | Select corners, create, and delete fields |
+   | Lightning Rod | Create / Delete | Select corners, create, and delete rectangular fields |
    | End Crystal | Remote On / Off | Toggle whichever field you're looking at, within a 10 block radius |
+   | Beacon | Force Field Generator | Place it to create a spherical *bubble* field centered on itself - see [Beacon Bubble Fields](#beacon-bubble-fields) below |
    | Book | - | Right-click while held to open the "My Energy Force Fields" list GUI |
    | Enchanted Book | Admin only | Right-click while held to open **every** field on the server - only appears here if you have `forcefield.admin` |
 
@@ -148,6 +149,113 @@ periodically crackles and hums. Lowering it restores every block to
 exactly what was captured when the field was created - so it's safe to
 draw one over an existing door, window, or decorated arch.
 
+## Beacon Bubble Fields
+
+The **Force Field Generator** (a tagged Beacon block, `forcefield.tool.beacon`)
+makes a spherical shield instead of a rectangular one: place it anywhere and
+it generates a round "bubble" centered on itself. Unlike a rod field, a
+bubble is a **hollow shell**, not a solid-filled ball - a solid sphere at the
+larger presets would be tens of millions of blocks and would stall the
+server, so only the outer surface (about a block thick) is ever touched.
+
+Unlike a rod field's invisible `BARRIER` blocks, a bubble's shell is made of
+a real, visible block - translucent blue stained glass by default
+(`beacon-field-shell-material`) - so the dome itself is clearly visible from
+a distance, on top of its ambient shimmer. While raised, it also shoots a
+vertical particle beam straight up from the beacon to the top of its own
+bubble, then stops there (`beacon-beam-*` in config.yml) as a "powered on"
+indicator - a real vanilla beacon beam needs an actual pyramid underneath it
+and a clear shot to the sky, checked deep in Minecraft's own code rather than
+anything a plugin can switch on, so this is a particle stand-in that works
+anywhere - indoors, underground, in the Nether - with no world changes
+required. Turn it off with `beacon-beam-enabled: false` if you'd rather not
+have it.
+
+Raising happens in two stages: the beam extends from nothing up to its full
+length first (`beacon-beam-charge-blocks-per-tick`, quick by default - a
+"charging up" flourish), and only once it's fully extended does the shell
+itself actually start forming.
+
+### Beacon limit and merging bubbles
+
+Each player can have at most `beacon-field-max-per-player` beacons placed at
+once (2 by default). If you place a second beacon **inside one of your own
+existing bubbles**, it doesn't create a separate field - it merges into that
+same field as a second component. Merging never disturbs the existing
+bubble's own state, and the new beacon always starts off, exactly like a
+brand new field does - there's no forced lowering, no reforming, nothing
+happens to what's already up. Merging only ever happens within your own
+fields; placing a beacon inside someone else's bubble has no special effect.
+A merged pair still counts as 2 beacons against your limit.
+
+**Each beacon in a merged field has its own independent lever, radius, and
+Delete button** - turning one on or off, resizing it, or deleting it never
+touches the other. Whenever both happen to be raised at the same time, the
+shell wherever their two spheres overlap is automatically removed, so the
+two bubbles open into one connected space instead of sitting sealed against
+each other; turning one back off simply reseals that opening, and the
+remaining bubble becomes a complete sphere again on its own. So the usual
+flow for a merged pair is: place the second beacon, right-click it to pick
+its size, then hit its own On/Off lever whenever you're ready - the first
+bubble is never interrupted in the meantime.
+
+Right-click a placed beacon to open its own small control menu:
+
+| Item | Does |
+|---|---|
+| Lever | Raise/lower *this beacon's own* bubble - a merged neighbor keeps its own state |
+| Amethyst Bud (small) | Set *this beacon's own* radius to `beacon-field-radius-small` (50 blocks by default) |
+| Amethyst Bud (medium) | Set *this beacon's own* radius to `beacon-field-radius-medium` (150 blocks by default) |
+| Amethyst Cluster (large) | Set *this beacon's own* radius to `beacon-field-radius-large` (250 blocks by default) |
+| Barrier | Delete *this beacon's own* bubble (and break this beacon) - deletes the whole field only if it's the last beacon left |
+
+`/forcefield toggle <name>`, redstone links, and the regular field list/
+detail GUI still work as a single master switch that raises or lowers every
+beacon in a field together, for anything that doesn't know about individual
+beacons.
+
+A few things behave differently from a rod field because of the shape and
+scale involved:
+
+- The shell is filled/restored gradually, a batch of blocks per tick
+  instead of all at once, so raising or lowering a large bubble doesn't
+  freeze the server for a moment. Raising fills top-down, one horizontal
+  band at a time (`sphere-raise-blocks-per-tick`, 1000 by default - a couple
+  of seconds at radius 50, roughly half a minute at radius 250) and is
+  deliberately much slower than lowering (`sphere-lower-blocks-per-tick`,
+  8000 by default): the shell is genuinely open wherever it hasn't formed
+  yet, so this is a real window for anyone - friend or foe - to get in or
+  out before it seals, not just an animation. Already-placed shell blocks
+  are fully protected (unbreakable) from the instant they go down, even
+  while the rest is still filling in.
+- **Changing the radius always lowers the field first** if it's currently
+  raised, and leaves it lowered - resizing means restoring the old shell
+  before the new one can be captured, so you'll need to click the lever
+  again afterward to raise it at the new size.
+- The beacon *is* the field's generator, and it's fully protected - punching
+  it, blowing it up, anything, does nothing. The **only** way to remove one
+  is its own control GUI's **Delete** button, which deletes the field and
+  breaks the beacon together. There's no separate "replacement beacon" item
+  like lecterns have, since there's nothing to replace.
+- The ambient shimmer scales with the bubble's actual surface area
+  (`beacon-ambient-blocks-per-particle`, capped by
+  `beacon-ambient-particle-cap`) instead of the flat `ambient-particle-count`
+  used by rod fields - a fixed particle count would look sparse-to-invisible
+  spread across a sphere that can be tens of thousands of blocks around.
+- A beacon field also shows up in the regular field list/detail GUI (book or
+  admin book) alongside your rod fields, and can be renamed, made public,
+  toggled, or given lecterns from there too, exactly like any other field -
+  its own control menu just adds the size presets that only make sense for a
+  sphere. The list groups the two types together (every rod field, then
+  every beacon field, alphabetical within each) and gives beacon fields their
+  own icon (`beacon-fields-list-icon-material`) and a Radius line instead of
+  a Volume line, since a bubble's actual footprint is its hollow shell, not
+  its much larger bounding box.
+- Large radii are still a genuinely large number of blocks even hollow (the
+  250-block preset's shell is roughly 785,000 blocks), so placing one deep in
+  unexplored terrain can trigger a burst of chunk generation. Lower the
+  presets in `config.yml` if that's a concern on your server.
+
 ## Ownership
 
 Every field created via the rod (GUI or `/forcefield create`) is owned by
@@ -201,6 +309,7 @@ you trust that group with instead of handing out `forcefield.admin`.
 | `forcefield.use` | op | Umbrella node: opens `/eff_tools` and implies every node below, so a plain op/no-permissions-plugin server needs nothing else |
 | `forcefield.tool.rod` | false | Pick up and use the Create/Delete rod |
 | `forcefield.tool.crystal` | false | Pick up and use the Remote On/Off crystal |
+| `forcefield.tool.beacon` | false | Pick up and use the Force Field Generator (bubble fields) |
 | `forcefield.tool.book` | false | Pick up and use the "My Energy Force Fields" book |
 | `forcefield.create` | false | Create new zones (rod quick-create, `/forcefield create`) |
 | `forcefield.delete` | false | Delete your own zones (rod, GUI Delete button, `/forcefield remove`) |
@@ -216,8 +325,16 @@ don't own unless it's public or they're an admin.
 
 ## Configuration (`config.yml`)
 
-- `create-delete-rod-material` / `on-off-crystal-material` / `fields-book-material` / `admin-fields-book-material` - items used for the rod, remote crystal, pickable book, and admin book
+- `create-delete-rod-material` / `on-off-crystal-material` / `beacon-field-material` / `fields-book-material` / `admin-fields-book-material` - items used for the rod, remote crystal, Force Field Generator, pickable book, and admin book
+- `beacon-field-shell-material` - the block a beacon field's shell is made of when raised (blue stained glass by default, visible unlike a rod field's invisible barrier) - fully solid and protected regardless of what you pick, just changes the look
+- `beacon-fields-list-icon-material` - the icon used for beacon fields specifically in the "My Energy Force Fields" list GUI (a Beacon by default, distinct from rod fields' icon)
 - `crystal-remote-range` - how far (in blocks) the On/Off remote's line-of-sight check reaches
+- `beacon-field-radius-small` / `beacon-field-radius-medium` / `beacon-field-radius-large` - the three preset radii (in blocks) offered by a beacon field's own control GUI (50/150/250 by default); it starts at the small radius when first placed
+- `beacon-field-max-per-player` - how many Force Field Generators one player can have placed at once (2 by default); placing one inside your own existing bubble merges it in instead of using a new slot on top of that limit (see [Beacon limit and merging bubbles](#beacon-limit-and-merging-bubbles))
+- `sphere-raise-blocks-per-tick` / `sphere-lower-blocks-per-tick` - how many of a beacon field's shell blocks are placed/restored per tick (1000 raising / 8000 lowering by default) - raising is intentionally slower so the shell's top-down fill gives players a real window to get in or out before it seals
+- `beacon-ambient-blocks-per-particle` / `beacon-ambient-particle-cap` - controls how dense a beacon field's ambient shimmer is (one particle per this-many shell blocks per pass, up to the cap) - lower the first number for a more visible shimmer
+- `beacon-beam-enabled` / `beacon-beam-particle` / `beacon-beam-spacing` - the vertical particle beam a raised beacon field shoots upward (from the beacon to the top of its own bubble) as a "powered on" indicator
+- `beacon-beam-charge-blocks-per-tick` - how fast the beam extends to full length before the shell starts forming (a "charging up" flourish that happens first)
 - `lecterns-per-field` - how many Force Field Lecterns you get when creating a field, and how many the "Get Replacement Lecterns" button hands out (2 by default; set to 0 to stop giving them out automatically)
 - `lectern-double-click-window-ms` - how quickly two left-clicks on the same lectern must land to count as a double-click and open its edit menu
 - `fields-list-icon-material` - icon used for each field entry in the list GUI (defaults to `NETHERITE_NAUTILUS_ARMOR`)

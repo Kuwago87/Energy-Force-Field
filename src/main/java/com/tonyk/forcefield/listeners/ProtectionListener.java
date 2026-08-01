@@ -46,6 +46,21 @@ public final class ProtectionListener implements Listener {
         return plugin.getConfig().getLong("resist-feedback-cooldown-ms", 800L);
     }
 
+    /** The material a beacon (spherical) field's shell is made of - see FieldManager. */
+    private Material sphereShellMaterial() {
+        String name = plugin.getConfig().getString("beacon-field-shell-material", "BLUE_STAINED_GLASS");
+        try {
+            return Material.valueOf(name.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return Material.BLUE_STAINED_GLASS;
+        }
+    }
+
+    /** True for either a rod field's BARRIER blocks or a beacon field's (configurable) shell material. */
+    private boolean isForceFieldMaterial(Material type) {
+        return type == Material.BARRIER || type == sphereShellMaterial();
+    }
+
     private void giveFeedback(Player player, Location at) {
         long now = System.currentTimeMillis();
         Long last = lastResistFeedback.get(player.getUniqueId());
@@ -60,10 +75,10 @@ public final class ProtectionListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
-        if (block.getType() != Material.BARRIER) {
+        if (!isForceFieldMaterial(block.getType())) {
             return;
         }
-        ForceFieldZone zone = ZoneLookup.findEnabledZoneContaining(fields, block.getLocation());
+        ForceFieldZone zone = ZoneLookup.findEnabledZoneContaining(fields, block.getLocation(), block.getType(), sphereShellMaterial());
         if (zone == null) {
             return;
         }
@@ -77,10 +92,10 @@ public final class ProtectionListener implements Listener {
             return;
         }
         Block block = event.getClickedBlock();
-        if (block == null || block.getType() != Material.BARRIER) {
+        if (block == null || !isForceFieldMaterial(block.getType())) {
             return;
         }
-        ForceFieldZone zone = ZoneLookup.findEnabledZoneContaining(fields, block.getLocation());
+        ForceFieldZone zone = ZoneLookup.findEnabledZoneContaining(fields, block.getLocation(), block.getType(), sphereShellMaterial());
         if (zone == null) {
             return;
         }
@@ -89,13 +104,15 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onBlockExplode(BlockExplodeEvent event) {
-        event.blockList().removeIf(b -> b.getType() == Material.BARRIER
-                && ZoneLookup.findEnabledZoneContaining(fields, b.getLocation()) != null);
+        Material shellMaterial = sphereShellMaterial();
+        event.blockList().removeIf(b -> isForceFieldMaterial(b.getType())
+                && ZoneLookup.findEnabledZoneContaining(fields, b.getLocation(), b.getType(), shellMaterial) != null);
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent event) {
-        event.blockList().removeIf(b -> b.getType() == Material.BARRIER
-                && ZoneLookup.findEnabledZoneContaining(fields, b.getLocation()) != null);
+        Material shellMaterial = sphereShellMaterial();
+        event.blockList().removeIf(b -> isForceFieldMaterial(b.getType())
+                && ZoneLookup.findEnabledZoneContaining(fields, b.getLocation(), b.getType(), shellMaterial) != null);
     }
 }

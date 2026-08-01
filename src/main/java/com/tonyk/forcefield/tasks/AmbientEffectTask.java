@@ -47,8 +47,15 @@ public final class AmbientEffectTask extends BukkitRunnable {
             }
 
             Cuboid c = zone.getCuboid();
-            for (int i = 0; i < particlesPerZone; i++) {
-                effects.ambientPulse(world, randomSurfacePoint(world, c));
+            if (zone.isSpherical()) {
+                int spherePasses = sphereParticleCount(zone);
+                for (int i = 0; i < spherePasses; i++) {
+                    effects.ambientPulse(world, randomSphereSurfacePoint(world, zone));
+                }
+            } else {
+                for (int i = 0; i < particlesPerZone; i++) {
+                    effects.ambientPulse(world, randomSurfacePoint(world, c));
+                }
             }
 
             if (playHumThisPass) {
@@ -64,6 +71,30 @@ public final class AmbientEffectTask extends BukkitRunnable {
                 }
             }
         }
+    }
+
+    /**
+     * A bubble's surface area dwarfs a typical cuboid selection's, so reusing
+     * the flat ambient-particle-count default would look almost invisible
+     * once scattered across it - scale the per-pass particle count with the
+     * shell's actual block count instead, within configurable floor/cap.
+     * Uses the zone's combined shell, so a merged (multi-beacon) bubble's
+     * count reflects its real (smaller, wall-removed) surface rather than
+     * the sum of each component's stand-alone sphere.
+     */
+    private int sphereParticleCount(ForceFieldZone zone) {
+        int shellBlocks = fields.getCombinedShell(zone).length;
+        int blocksPerParticle = Math.max(1, plugin.getConfig().getInt("beacon-ambient-blocks-per-particle", 8));
+        int cap = Math.max(1, plugin.getConfig().getInt("beacon-ambient-particle-cap", 20000));
+        int scaled = shellBlocks / blocksPerParticle;
+        return Math.max(200, Math.min(cap, scaled));
+    }
+
+    /** Picks a random point on a spherical zone's actual (combined) shell, reusing the same cached shape used to fill/restore it. */
+    private Location randomSphereSurfacePoint(World world, ForceFieldZone zone) {
+        int[][] shell = fields.getCombinedShell(zone);
+        int[] p = shell[ThreadLocalRandom.current().nextInt(shell.length)];
+        return new Location(world, p[0] + 0.5, p[1] + 0.5, p[2] + 0.5);
     }
 
     private Location randomSurfacePoint(World world, Cuboid c) {

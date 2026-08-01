@@ -2,8 +2,10 @@ package com.tonyk.forcefield;
 
 import com.tonyk.forcefield.commands.ForceFieldCommand;
 import com.tonyk.forcefield.commands.ToolsCommand;
+import com.tonyk.forcefield.gui.BeaconGuiListener;
 import com.tonyk.forcefield.gui.FieldsGuiListener;
 import com.tonyk.forcefield.gui.ToolsGuiListener;
+import com.tonyk.forcefield.listeners.BeaconListener;
 import com.tonyk.forcefield.listeners.CrystalListener;
 import com.tonyk.forcefield.listeners.LecternListener;
 import com.tonyk.forcefield.listeners.ProtectionListener;
@@ -55,9 +57,13 @@ public final class ForceFieldPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new CrystalListener(this, fieldManager, messages), this);
         getServer().getPluginManager().registerEvents(
+                new BeaconListener(this, fieldManager, messages), this);
+        getServer().getPluginManager().registerEvents(
                 new ToolsGuiListener(this), this);
         getServer().getPluginManager().registerEvents(
                 new FieldsGuiListener(this, fieldManager, selectionManager, messages), this);
+        getServer().getPluginManager().registerEvents(
+                new BeaconGuiListener(this, fieldManager, messages), this);
 
         PluginCommand forcefieldCommand = getCommand("forcefield");
         if (forcefieldCommand != null) {
@@ -79,7 +85,7 @@ public final class ForceFieldPlugin extends JavaPlugin {
         ambientTask = new AmbientEffectTask(this, fieldManager, effects).runTaskTimer(this, interval, interval);
 
         long edgeInterval = Math.max(1, getConfig().getLong("edge-outline-interval-ticks", 4));
-        edgeOutlineTask = new EdgeOutlineTask(fieldManager, effects).runTaskTimer(this, edgeInterval, edgeInterval);
+        edgeOutlineTask = new EdgeOutlineTask(this, fieldManager, effects).runTaskTimer(this, edgeInterval, edgeInterval);
 
         getLogger().info("EFF enabled - " + fieldManager.getZones().size() + " zone(s) loaded.");
     }

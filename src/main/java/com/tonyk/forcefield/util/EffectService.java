@@ -27,6 +27,7 @@ public final class EffectService {
     private Particle wallParticle;
     private Particle ambientParticle;
     private Particle resistParticle;
+    private Particle beaconBeamParticle;
 
     public EffectService(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -42,6 +43,7 @@ public final class EffectService {
         wallParticle = resolveParticle(cfg.getString("effects.wall-particle", "SCULK_CHARGE_POP"), Particle.SCULK_CHARGE_POP);
         ambientParticle = resolveParticle(cfg.getString("effects.ambient-particle", "SCULK_CHARGE_POP"), Particle.SCULK_CHARGE_POP);
         resistParticle = resolveParticle(cfg.getString("effects.resist-particle", "SCULK_CHARGE_POP"), Particle.SCULK_CHARGE_POP);
+        beaconBeamParticle = resolveParticle(cfg.getString("beacon-beam-particle", "END_ROD"), Particle.END_ROD);
     }
 
     private Sound resolveSound(String name, Sound fallback) {
@@ -96,6 +98,15 @@ public final class EffectService {
      */
     public void ambientHumTo(Player player, Location point, float volume) {
         player.playSound(point, ambientSound, volume, 1.6f);
+    }
+
+    /**
+     * A tight, un-jittered particle used to draw a beacon field's vertical
+     * "power on" beam - same style as {@link #edgePulse}, just spawned in a
+     * straight line going up instead of tracing a box's edges.
+     */
+    public void beaconBeamPulse(World world, Location point) {
+        world.spawnParticle(beaconBeamParticle, point, 1, 0.0, 0.0, 0.0, 0.0);
     }
 
     public void playResist(Location point) {

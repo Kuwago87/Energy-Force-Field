@@ -18,6 +18,7 @@
 #                                                node below, so a plain op server needs nothing else
 #   forcefield.tool.rod      (default: false) - pick up and use the Create/Delete rod
 #   forcefield.tool.crystal  (default: false) - pick up and use the Remote On/Off crystal
+#   forcefield.tool.beacon   (default: false) - pick up and use the Force Field Generator (bubble fields)
 #   forcefield.tool.book     (default: false) - pick up and use the "My Energy Force Fields" book
 #   forcefield.create        (default: false) - create new zones (rod quick-create, /forcefield create)
 #   forcefield.delete        (default: false) - delete your own zones (rod, GUI Delete, /forcefield remove)
@@ -47,6 +48,93 @@ on-off-crystal-material: END_CRYSTAL
 # How far (in blocks) the On/Off remote's line-of-sight check reaches.
 crystal-remote-range: 10.0
 
+# The item used as the Force Field Generator - placing it creates a spherical
+# "bubble" shield centered on itself (a hollow shell, not a solid-filled
+# ball). Must be a valid Bukkit Material name.
+beacon-field-material: BEACON
+
+# The block a beacon field's shell is actually made of when raised. Unlike a
+# rod field (invisible BARRIER, since it's meant to seal a doorway or gap
+# unnoticed), a bubble is meant to be seen - defaults to a translucent blue
+# glass so it reads clearly as a shield dome. Fully solid and fully protected
+# either way; only the look changes. Must be a valid Bukkit Material name and
+# should be a solid, non-transparent-to-projectiles block.
+beacon-field-shell-material: BLUE_STAINED_GLASS
+
+# The three preset radii (in blocks) offered by a beacon field's own control
+# GUI - Small/Medium/Large. The field always starts at the small radius when
+# first placed. Large radii are still a lot of blocks (the shell alone, not a
+# solid fill) and can trigger noticeable chunk loading if placed somewhere
+# mostly unexplored - keep these lower on a survival server if that's a
+# concern.
+beacon-field-radius-small: 25
+beacon-field-radius-medium: 50
+beacon-field-radius-large: 75
+
+# How many Force Field Generators a single player can have placed at once,
+# across every bubble they own. Deleting one (via its own GUI's Delete
+# button) frees up a slot again. Set to 0 to block the tool entirely without
+# revoking forcefield.tool.beacon.
+beacon-field-max-per-player: 2
+
+# If a player places a second beacon inside one of their own existing
+# bubbles, the two merge into a single field instead of creating a separate
+# one - whenever both happen to be raised at once, the shell wherever the two
+# spheres overlap is removed, so the merged shape reads as one connected
+# space rather than two bubbles sealed against each other. Each beacon keeps
+# its own radius, its own On/Off lever, and its own Delete button, fully
+# independent of the other - merging never disturbs an already-raised
+# bubble's own state, and the new beacon always starts off, exactly like a
+# brand new field does. Turning one off while the other stays on simply
+# reseals the shared wall, leaving the remaining bubble complete on its own
+# again. This only ever merges with a zone you own - placing a beacon inside
+# someone else's bubble does nothing special. Still counts fully against
+# beacon-field-max-per-player above (a merged pair still uses both of your 2
+# beacons).
+
+# How many of a beacon field's shell blocks are placed per tick while
+# raising it, filled top-down in bands (see beacon-beam-* below for the
+# accompanying beam). This is intentionally much slower than lowering by
+# default - the shell is genuinely open wherever it hasn't filled in yet, so
+# a slow raise gives players a real window to get in or out before it seals,
+# not just a cosmetic animation. Raise the number for a faster/more solid-
+# feeling shield, lower it for a longer window; at radius 50 the default
+# takes several seconds, at radius 250 well over a minute.
+sphere-raise-blocks-per-tick: 333
+
+# Same idea, but for lowering - kept fast by default since there's usually no
+# reason to drag that out (nothing to protect once it's fully down anyway).
+sphere-lower-blocks-per-tick: 8000
+
+# A bubble's surface area is much bigger than a typical rod-selected box, so
+# its ambient shimmer scales with shell size instead of using the flat
+# ambient-particle-count below (which would look sparse-to-invisible spread
+# across a large sphere). Every this-many blocks of shell gets one particle
+# per ambient pass - lower this for a denser/more visible shimmer, raise it
+# to thin it out. beacon-ambient-particle-cap is a hard ceiling regardless of
+# radius, so an oversized bubble can't spam particles into a performance
+# problem.
+beacon-ambient-blocks-per-particle: 8
+beacon-ambient-particle-cap: 20000
+
+# A raised beacon field draws a vertical particle "beam" straight up from the
+# beacon to the top of its own bubble (then stops - it doesn't poke out
+# through the dome), similar in spirit to a real vanilla beacon's light beam
+# - since a real one requires an actual pyramid + a clear shot to the sky
+# (checked deep in Minecraft's own code, not something a plugin can just
+# switch on), this is a particle stand-in instead: works anywhere, indoors or
+# out, no world changes required.
+beacon-beam-enabled: true
+beacon-beam-particle: END_ROD
+beacon-beam-spacing: 1.0
+
+# When a beacon field is raised, the beam extends from 0 up to full length
+# first (this many blocks per tick), and only once it's fully extended does
+# the shell itself start forming - a "charging up" flourish before the
+# bubble begins. This is independent of, and much quicker by default than,
+# the shell fill itself (sphere-raise-blocks-per-tick above).
+beacon-beam-charge-blocks-per-tick: 5
+
 # How many Force Field Lecterns (the physical on/off switches) a player
 # gets when creating a field, and how many the "Get Replacement Lecterns"
 # button in the field detail GUI hands out. Set to 0 to disable giving them
@@ -62,6 +150,11 @@ lectern-double-click-window-ms: 400
 # GUI (opened from the book slot in /eff_tools). Must be a valid Bukkit
 # Material name.
 fields-list-icon-material: NETHERITE_NAUTILUS_ARMOR
+
+# Same, but for beacon (bubble) fields specifically - the list groups rod
+# fields and beacon fields together by type, each with its own icon, so
+# they're easy to tell apart at a glance.
+beacon-fields-list-icon-material: BEACON
 
 # The item used as the fields-list book (right-click it to open the list).
 # Must be a valid Bukkit Material name.
@@ -100,12 +193,12 @@ max-volume-without-confirm: 5000
 
 # How often (in ticks, 20 ticks = 1 second) the ambient shimmer/hum effect
 # runs on every currently-raised field.
-ambient-interval-ticks: 20
+ambient-interval-ticks: 40
 
 # How many shimmer particles are scattered across a raised field's surface
 # each ambient pass. Turn this down if you have a lot of large fields raised
 # at once and notice particle lag.
-ambient-particle-count: 240
+ambient-particle-count: 60
 
 # How often (in ticks) the top and bottom edge of a raised field is re-traced
 # with particles. This is intentionally much more frequent than
@@ -145,6 +238,10 @@ messages:
   zone-removed: "&aEnergy Force Field '&f%name%&a' removed."
   zone-raised: "&aEnergy Force Field '&f%name%&a' raised."
   zone-lowered: "&eEnergy Force Field '&f%name%&e' lowered."
+  beacon-field-created: "&aForce Field Generator placed - '&f%name%&a' is a %radius%-block bubble, lowered. Right-click it for controls."
+  beacon-field-merged: "&aForce Field Generator placed - merged into '&f%name%&a' as a %radius%-block bubble. Right-click it for controls."
+  beacon-field-resized: "&aEnergy Force Field '&f%name%&a' bubble radius set to %radius% blocks."
+  beacon-limit-reached: "&cYou already have the maximum of %max% Force Field Generators placed. Delete one (via its own GUI) to place another."
   too-large: "&cThat selection is %blocks% blocks, which is over the %max% limit. Re-run with 'confirm' if you're sure: /forcefield create %name% confirm"
   resisted: "&7The energy field resists your efforts."
   link-start: "&eNow left-click the lever, button or redstone block you want to control '&f%name%&e' with."

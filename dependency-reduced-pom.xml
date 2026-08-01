@@ -4,7 +4,7 @@
   <groupId>com.tonyk</groupId>
   <artifactId>forcefield</artifactId>
   <name>EFF</name>
-  <version>1.1.5</version>
+  <version>1.2.0</version>
   <description>Energy Force Field (EFF) - Star Trek style shield barriers with an in-game GUI for Paper servers.</description>
   <build>
     <defaultGoal>clean package</defaultGoal>

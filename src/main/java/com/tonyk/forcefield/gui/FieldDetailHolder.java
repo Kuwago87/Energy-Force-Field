@@ -1,5 +1,6 @@
 package com.tonyk.forcefield.gui;
 
+import com.tonyk.forcefield.model.FieldShape;
 import org.bukkit.Location;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -17,16 +18,18 @@ public final class FieldDetailHolder implements InventoryHolder {
     private final String zoneName;
     private final int returnPage;
     private final boolean adminView;
+    private final FieldShape categoryFilter;
     private final Location lecternLocation;
 
     FieldDetailHolder(String zoneName, int returnPage) {
-        this(zoneName, returnPage, false);
+        this(zoneName, returnPage, false, null);
     }
 
-    FieldDetailHolder(String zoneName, int returnPage, boolean adminView) {
+    FieldDetailHolder(String zoneName, int returnPage, boolean adminView, FieldShape categoryFilter) {
         this.zoneName = zoneName;
         this.returnPage = returnPage;
         this.adminView = adminView;
+        this.categoryFilter = categoryFilter;
         this.lecternLocation = null;
     }
 
@@ -34,6 +37,7 @@ public final class FieldDetailHolder implements InventoryHolder {
         this.zoneName = zoneName;
         this.returnPage = 0;
         this.adminView = adminView;
+        this.categoryFilter = null;
         this.lecternLocation = lecternLocation;
     }
 
@@ -57,6 +61,11 @@ public final class FieldDetailHolder implements InventoryHolder {
     /** True if this detail menu was reached from the admin book (adds the Change Owner button, and "back" returns to the admin list). */
     public boolean isAdminView() {
         return adminView;
+    }
+
+    /** Non-null only when reached from an admin category list - which category to return to on "back". */
+    public FieldShape getCategoryFilter() {
+        return categoryFilter;
     }
 
     /** Non-null only if this menu was opened by double-left-clicking a lectern - the location of that lectern block. */

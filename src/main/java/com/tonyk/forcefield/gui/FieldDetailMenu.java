@@ -1,6 +1,7 @@
 package com.tonyk.forcefield.gui;
 
 import com.tonyk.forcefield.manager.FieldManager;
+import com.tonyk.forcefield.model.FieldShape;
 import com.tonyk.forcefield.model.ForceFieldZone;
 import com.tonyk.forcefield.util.Cuboid;
 import net.kyori.adventure.text.Component;
@@ -42,11 +43,11 @@ public final class FieldDetailMenu {
     }
 
     public static Inventory create(FieldManager fields, String zoneName, int returnPage) {
-        return create(fields, zoneName, returnPage, false);
+        return create(fields, zoneName, returnPage, false, null);
     }
 
-    public static Inventory create(FieldManager fields, String zoneName, int returnPage, boolean adminView) {
-        FieldDetailHolder holder = new FieldDetailHolder(zoneName, returnPage, adminView);
+    public static Inventory create(FieldManager fields, String zoneName, int returnPage, boolean adminView, FieldShape categoryFilter) {
+        FieldDetailHolder holder = new FieldDetailHolder(zoneName, returnPage, adminView, categoryFilter);
         return build(fields, zoneName, holder, adminView, backIcon());
     }
 

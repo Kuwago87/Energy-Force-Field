@@ -1,6 +1,7 @@
 package com.tonyk.forcefield.gui;
 
 import com.tonyk.forcefield.util.AdminBookItem;
+import com.tonyk.forcefield.util.BeaconItem;
 import com.tonyk.forcefield.util.BookItem;
 import com.tonyk.forcefield.util.OnOffCrystal;
 import com.tonyk.forcefield.util.WandItem;
@@ -114,6 +115,9 @@ public final class ToolsGuiListener implements Listener {
         if (slot == ToolsMenu.CRYSTAL_SLOT) {
             return OnOffCrystal.create(plugin);
         }
+        if (slot == ToolsMenu.BEACON_SLOT) {
+            return BeaconItem.create(plugin);
+        }
         if (slot == ToolsMenu.BOOK_SLOT) {
             return BookItem.create(plugin);
         }
@@ -130,6 +134,9 @@ public final class ToolsGuiListener implements Listener {
         }
         if (slot == ToolsMenu.CRYSTAL_SLOT) {
             return "forcefield.tool.crystal";
+        }
+        if (slot == ToolsMenu.BEACON_SLOT) {
+            return "forcefield.tool.beacon";
         }
         if (slot == ToolsMenu.BOOK_SLOT) {
             return "forcefield.tool.book";

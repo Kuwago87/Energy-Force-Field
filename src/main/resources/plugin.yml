@@ -1,8 +1,8 @@
 name: EFF
-version: '1.1.5'
+version: '1.2.0'
 main: com.tonyk.forcefield.ForceFieldPlugin
 description: Energy Force Field (EFF) - Star Trek style shield barriers with an in-game GUI.
-author: Kuwago23
+author: Kuwago
 prefix: EFF
 api-version: '26.2'
 load: POSTWORLD
@@ -54,6 +54,7 @@ permissions:
     children:
       forcefield.tool.rod: true
       forcefield.tool.crystal: true
+      forcefield.tool.beacon: true
       forcefield.tool.book: true
       forcefield.create: true
       forcefield.delete: true
@@ -65,6 +66,9 @@ permissions:
     default: false
   forcefield.tool.crystal:
     description: Pick up and use the Remote On/Off crystal
+    default: false
+  forcefield.tool.beacon:
+    description: Pick up and use the Force Field Generator (spherical bubble fields)
     default: false
   forcefield.tool.book:
     description: Pick up and use the "My Energy Force Fields" book

@@ -1,6 +1,7 @@
 package com.tonyk.forcefield.gui;
 
 import com.tonyk.forcefield.util.AdminBookItem;
+import com.tonyk.forcefield.util.BeaconItem;
 import com.tonyk.forcefield.util.BookItem;
 import com.tonyk.forcefield.util.OnOffCrystal;
 import com.tonyk.forcefield.util.WandItem;
@@ -16,28 +17,31 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Builds the "Energy Force Field Tools" GUI: a single row with the
- * Create/Delete rod, the On/Off remote crystal, and the tracking book
+ * Builds the "Energy Force Field Tools" GUI: the Create/Delete rod, the
+ * On/Off remote crystal, the Force Field Beacon, and the tracking book
  * (creating a field via the rod also hands out physical lecterns as its
  * on/off switches - see LecternItem). Each item only appears for a player
  * who actually has the matching forcefield.tool.* permission - a slot for
- * an item you're not allowed to use is left as a plain filler pane, same
- * treatment the admin book already got. Players with forcefield.admin also
- * get that fourth item, the admin "All Energy Force Fields" book.
+ * an item you're not allowed to use is left as a plain filler pane. Players
+ * with forcefield.admin also get a fifth item, the admin "All Energy Force
+ * Fields" book. All five real items sit side by side, centered in a single
+ * row.
  */
 public final class ToolsMenu {
 
+    public static final int SIZE = 9;
     public static final int ROD_SLOT = 2;
-    public static final int CRYSTAL_SLOT = 4;
-    public static final int BOOK_SLOT = 6;
-    public static final int ADMIN_BOOK_SLOT = 8;
+    public static final int CRYSTAL_SLOT = 3;
+    public static final int BEACON_SLOT = 4;
+    public static final int BOOK_SLOT = 5;
+    public static final int ADMIN_BOOK_SLOT = 6;
 
     private ToolsMenu() {
     }
 
     public static Inventory create(JavaPlugin plugin, Player player) {
         ToolsMenuHolder holder = new ToolsMenuHolder();
-        Inventory inventory = Bukkit.createInventory(holder, 9,
+        Inventory inventory = Bukkit.createInventory(holder, SIZE,
                 Component.text("Energy Force Field Tools", NamedTextColor.DARK_AQUA));
         holder.setInventory(inventory);
 
@@ -51,6 +55,9 @@ public final class ToolsMenu {
         }
         if (player != null && player.hasPermission("forcefield.tool.crystal")) {
             inventory.setItem(CRYSTAL_SLOT, OnOffCrystal.create(plugin));
+        }
+        if (player != null && player.hasPermission("forcefield.tool.beacon")) {
+            inventory.setItem(BEACON_SLOT, BeaconItem.create(plugin));
         }
         if (player != null && player.hasPermission("forcefield.tool.book")) {
             inventory.setItem(BOOK_SLOT, BookItem.create(plugin));

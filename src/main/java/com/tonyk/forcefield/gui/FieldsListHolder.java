@@ -1,5 +1,6 @@
 package com.tonyk.forcefield.gui;
 
+import com.tonyk.forcefield.model.FieldShape;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
@@ -17,15 +18,17 @@ public final class FieldsListHolder implements InventoryHolder {
     private final List<String> zoneNames;
     private final int page;
     private final boolean adminView;
+    private final FieldShape categoryFilter;
 
     FieldsListHolder(List<String> zoneNames, int page) {
-        this(zoneNames, page, false);
+        this(zoneNames, page, false, null);
     }
 
-    FieldsListHolder(List<String> zoneNames, int page, boolean adminView) {
+    FieldsListHolder(List<String> zoneNames, int page, boolean adminView, FieldShape categoryFilter) {
         this.zoneNames = zoneNames;
         this.page = page;
         this.adminView = adminView;
+        this.categoryFilter = categoryFilter;
     }
 
     @Override
@@ -48,5 +51,10 @@ public final class FieldsListHolder implements InventoryHolder {
     /** True if this list was opened from the admin book (shows every zone, not just the viewer's own). */
     public boolean isAdminView() {
         return adminView;
+    }
+
+    /** Non-null only for an admin category list (CUBOID = "Rod Fields", SPHERE = "Beacon Generators") - null for the player's own combined book. */
+    public FieldShape getCategoryFilter() {
+        return categoryFilter;
     }
 }

@@ -218,9 +218,26 @@ public final class ForceFieldCommand implements CommandExecutor, TabCompleter {
         Cuboid c = zone.getCuboid();
         sender.sendMessage(Component.text("Force field '" + zone.getName() + "'", NamedTextColor.AQUA));
         sender.sendMessage(Component.text("  World: " + c.getWorldName(), NamedTextColor.GRAY));
-        sender.sendMessage(Component.text("  Corners: (" + c.getMinX() + "," + c.getMinY() + "," + c.getMinZ()
-                + ") to (" + c.getMaxX() + "," + c.getMaxY() + "," + c.getMaxZ() + ")", NamedTextColor.GRAY));
-        sender.sendMessage(Component.text("  Volume: " + c.volume() + " blocks", NamedTextColor.GRAY));
+        if (zone.isSpherical()) {
+            sender.sendMessage(Component.text("  Type: Beacon bubble", NamedTextColor.GRAY));
+            List<ForceFieldZone.SphereComponent> comps = zone.getSphereComponents();
+            if (comps.size() > 1) {
+                sender.sendMessage(Component.text("  Beacons: " + comps.size() + " (merged, each independently on/off)", NamedTextColor.GRAY));
+                for (ForceFieldZone.SphereComponent comp : comps) {
+                    sender.sendMessage(Component.text("    - (" + comp.getX() + "," + comp.getY() + "," + comp.getZ()
+                            + ") radius " + comp.getRadius() + " blocks - " + (comp.isEnabled() ? "RAISED" : "lowered"), NamedTextColor.DARK_GRAY));
+                }
+            } else if (!comps.isEmpty()) {
+                ForceFieldZone.SphereComponent comp = comps.get(0);
+                sender.sendMessage(Component.text("  Center: (" + comp.getX() + "," + comp.getY() + "," + comp.getZ() + ")", NamedTextColor.GRAY));
+                sender.sendMessage(Component.text("  Radius: " + comp.getRadius() + " blocks", NamedTextColor.GRAY));
+            }
+        } else {
+            sender.sendMessage(Component.text("  Type: Rod (cuboid)", NamedTextColor.GRAY));
+            sender.sendMessage(Component.text("  Corners: (" + c.getMinX() + "," + c.getMinY() + "," + c.getMinZ()
+                    + ") to (" + c.getMaxX() + "," + c.getMaxY() + "," + c.getMaxZ() + ")", NamedTextColor.GRAY));
+            sender.sendMessage(Component.text("  Volume: " + c.volume() + " blocks", NamedTextColor.GRAY));
+        }
         sender.sendMessage(Component.text("  State: " + (zone.isEnabled() ? "RAISED" : "lowered"), NamedTextColor.GRAY));
         if (zone.getOwnerName() != null) {
             sender.sendMessage(Component.text("  Owner: " + zone.getOwnerName(), NamedTextColor.GRAY));
