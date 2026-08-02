@@ -1,10 +1,6 @@
 # EFF - Energy Force Field
 
-A Paper plugin that turns any doorway, wall gap, or open area into a Star
-Trek style energy shield, controlled through an in-game GUI. Raise it and
-it becomes a solid, invisible barrier that crackles with `sculk_charge_pop`
-particles and hums; lower it and the space opens back up exactly as it was
-before.
+A Paper plugin that protect any doorway, wall in gap, or area (portable generator) with an Energy Force Field, controlled through a GUI. Raise it and it becomes a solid barrier.
 
 ## Requirements
 
@@ -375,6 +371,15 @@ don't own unless it's public or they're an admin.
 
 EFF reports anonymous usage stats via [bStats](https://bstats.org/plugin/bukkit/EFF/33044)
 (plugin id `33044`) - things like player count, server version, and Java
+
 version, the same as most Bukkit/Paper plugins. No personal data is
 collected. This can be turned off server-wide in `plugins/bStats/config.yml`
 (`enabled: false`) without affecting anything else in EFF.
+
+## Shameless plug:
+
+Minecraft Builds
+
+Planet Minecraft Builds:
+
+https://www.planetminecraft.com/member/kuwago/
