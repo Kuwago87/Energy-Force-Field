@@ -44,6 +44,40 @@ public final class ZoneLookup {
         return null;
     }
 
+    /**
+     * Finds the enabled zone (if any) whose footprint covers this location,
+     * regardless of what material currently occupies it. Raising a field
+     * deliberately leaves already-solid blocks caught in its path untouched
+     * (see FieldManager#raise / the sphere shell fill) rather than
+     * overwriting them - but that means a door frame, a floor, a decoration,
+     * or even just natural terrain sitting exactly where the barrier should
+     * be was never actually protected, and a player could simply mine it out
+     * to open a real, permanent hole straight through an otherwise-sealed
+     * field. Callers should only use this for a block that isn't passable
+     * (i.e. one that's genuinely standing in for a piece of the field) -
+     * anything passable in the footprint would already have been converted
+     * to the field's own material by raise() and is covered by
+     * {@link #findEnabledZoneContaining} instead.
+     */
+    public static ForceFieldZone findEnabledZoneBlockingAt(FieldManager manager, Location loc) {
+        if (loc == null || loc.getWorld() == null) {
+            return null;
+        }
+        for (ForceFieldZone zone : manager.getZones().values()) {
+            if (!zone.isEnabled()) {
+                continue;
+            }
+            if (zone.isSpherical()) {
+                if (isOnSphereShell(zone, loc)) {
+                    return zone;
+                }
+            } else if (zone.getCuboid().contains(loc)) {
+                return zone;
+            }
+        }
+        return null;
+    }
+
     /** Checked against every currently-raised component of a (possibly merged, multi-beacon) spherical zone - a disabled component's sphere doesn't protect anything even if a merged neighbor is still up. */
     private static boolean isOnSphereShell(ForceFieldZone zone, Location loc) {
         if (!loc.getWorld().getName().equals(zone.getCuboid().getWorldName())) {

@@ -18,12 +18,15 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Handles clicks in the Force Field Beacon's control GUI. Every action
- * closes the menu afterward instead of refreshing it in place - raising,
- * lowering, and resizing a sphere are all ticked operations that finish over
- * the following seconds (see FieldManager), so re-showing the menu
- * immediately would just display stale on/off or radius info until the
- * player reopened it anyway.
+ * Handles clicks in the Force Field Beacon's control GUI. Toggling on/off and
+ * deleting both close the menu afterward - those are ticked operations that
+ * finish over the following seconds (see FieldManager), so re-showing the
+ * menu immediately would just display stale info until the player reopened
+ * it anyway. Resizing is the exception: it applies (and, if the beacon was
+ * already raised, transitions live) without ever needing the player to
+ * manually turn it back on, so the menu is refreshed in place instead of
+ * closed - letting them pick a size and immediately hit On/Off without
+ * having to re-right-click the beacon.
  */
 public final class BeaconGuiListener implements Listener {
 
@@ -93,11 +96,11 @@ public final class BeaconGuiListener implements Listener {
         if (slot == BeaconFieldMenu.DELETE_SLOT) {
             handleDelete(player, zone, component, beaconHolder);
         } else if (slot == BeaconFieldMenu.SMALL_SLOT) {
-            handleResize(player, zone, component, radiusConfig("beacon-field-radius-small", 50));
+            handleResize(player, zone, component, radiusConfig("beacon-field-radius-small", 50), beaconHolder, top);
         } else if (slot == BeaconFieldMenu.MEDIUM_SLOT) {
-            handleResize(player, zone, component, radiusConfig("beacon-field-radius-medium", 150));
+            handleResize(player, zone, component, radiusConfig("beacon-field-radius-medium", 150), beaconHolder, top);
         } else if (slot == BeaconFieldMenu.LARGE_SLOT) {
-            handleResize(player, zone, component, radiusConfig("beacon-field-radius-large", 250));
+            handleResize(player, zone, component, radiusConfig("beacon-field-radius-large", 250), beaconHolder, top);
         }
     }
 
@@ -140,21 +143,46 @@ public final class BeaconGuiListener implements Listener {
         }
     }
 
-    private void handleResize(Player player, ForceFieldZone zone, ForceFieldZone.SphereComponent component, int radius) {
+    /**
+     * Applies a new radius and, unlike delete/toggle, leaves the menu open
+     * afterward - refreshed in place so the size buttons immediately reflect
+     * the new selection, letting the player go straight to On/Off without
+     * having to re-right-click the beacon. If it was already raised, the
+     * resize applies live (see FieldManager#setComponentRadius) and simply
+     * stays up at the new size; nothing further is needed to "turn it back
+     * on".
+     */
+    private void handleResize(Player player, ForceFieldZone zone, ForceFieldZone.SphereComponent component,
+                               int radius, BeaconFieldHolder holder, Inventory openInventory) {
         if (!player.hasPermission("forcefield.modify")) {
             messages.send(player, "no-permission");
             return;
         }
         if (component.getRadius() == radius) {
-            player.closeInventory();
             return;
         }
-        player.closeInventory();
         boolean wasEnabled = component.isEnabled();
         fields.setComponentRadius(zone, component, radius);
         messages.send(player, "beacon-field-resized", "name", zone.getName(), "radius", String.valueOf(radius));
         if (wasEnabled) {
-            player.sendMessage(Component.text("This beacon is lowering now - right-click it and click On/Off again to raise it at the new size.", NamedTextColor.GRAY));
+            player.sendMessage(Component.text("This beacon's bubble is adjusting to its new size now - no need to turn it back on.", NamedTextColor.GRAY));
+        }
+        refreshBeaconMenu(player, holder, openInventory);
+    }
+
+    /**
+     * Rebuilds this beacon's menu contents from the (already-updated) live
+     * state and copies them into the still-open inventory in place, so the
+     * player sees the change immediately without the menu flashing shut and
+     * reopening.
+     */
+    private void refreshBeaconMenu(Player player, BeaconFieldHolder holder, Inventory openInventory) {
+        if (player.getOpenInventory().getTopInventory() != openInventory) {
+            return;
+        }
+        Inventory fresh = BeaconFieldMenu.create(plugin, fields, holder.getZoneId(), holder.getBeaconLocation());
+        for (int slot = 0; slot < BeaconFieldMenu.SIZE; slot++) {
+            openInventory.setItem(slot, fresh.getItem(slot));
         }
     }
 

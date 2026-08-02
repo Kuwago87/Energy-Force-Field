@@ -22,10 +22,9 @@ import java.util.UUID;
  * bubble (independent of every other beacon it might be merged with), three
  * amethyst-growth-tier buttons to set its radius (small, medium, large -
  * each configurable in config.yml), and a barrier to delete just this
- * beacon's own bubble. Changing size always lowers this beacon first if it's
- * raised - the player has to click On/Off again afterward to raise it at the
- * new size, since resizing while raised means restoring the old shell before
- * the new one can be captured/filled. None of this ever touches a merged
+ * beacon's own bubble. Changing size applies live if this beacon is already
+ * raised - the shell transitions straight to the new size without ever
+ * needing to be manually turned back on. None of this ever touches a merged
  * neighbor's own state.
  */
 public final class BeaconFieldMenu {
@@ -117,8 +116,8 @@ public final class BeaconFieldMenu {
             lore.add(Component.empty());
         }
         lore.add(Component.text("Click to set this beacon's own bubble to this size", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("(lowers just this beacon first if it's raised -", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("a merged neighbor is left alone)", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
+        lore.add(Component.text("(applies live if it's already raised - no need to", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
+        lore.add(Component.text("turn it back on - a merged neighbor is left alone)", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
         meta.lore(lore);
 
         item.setItemMeta(meta);

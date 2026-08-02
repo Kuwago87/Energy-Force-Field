@@ -25,7 +25,13 @@ import java.util.UUID;
 /**
  * Protects raised force fields: their barrier blocks can't be broken, punched
  * through, or blown up while the field is active, and give the player a
- * "the field resists you" nudge (rate-limited) when they try.
+ * "the field resists you" nudge (rate-limited) when they try. This also
+ * covers already-solid blocks that raise() deliberately left untouched in
+ * the field's path (a door frame, terrain, decorations, ...) - those were
+ * never converted to the field's own material, but breaking one would open
+ * a real, permanent gap straight through the field, so they're protected
+ * exactly like the field's own barrier/shell blocks for as long as it stays
+ * raised (see ZoneLookup#findEnabledZoneBlockingAt).
  */
 public final class ProtectionListener implements Listener {
 
@@ -72,13 +78,27 @@ public final class ProtectionListener implements Listener {
         messages.send(player, "resisted");
     }
 
+    /**
+     * Finds the enabled zone (if any) actually protecting this block, whether
+     * it's the field's own barrier/shell material or an already-solid block
+     * raise() left alone in the field's path (a passable block in the
+     * footprint would always have been converted, so it's never a concern
+     * here).
+     */
+    private ForceFieldZone findProtectingZone(Block block) {
+        if (isForceFieldMaterial(block.getType())) {
+            return ZoneLookup.findEnabledZoneContaining(fields, block.getLocation(), block.getType(), sphereShellMaterial());
+        }
+        if (block.isPassable()) {
+            return null;
+        }
+        return ZoneLookup.findEnabledZoneBlockingAt(fields, block.getLocation());
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
-        if (!isForceFieldMaterial(block.getType())) {
-            return;
-        }
-        ForceFieldZone zone = ZoneLookup.findEnabledZoneContaining(fields, block.getLocation(), block.getType(), sphereShellMaterial());
+        ForceFieldZone zone = findProtectingZone(block);
         if (zone == null) {
             return;
         }
@@ -92,10 +112,10 @@ public final class ProtectionListener implements Listener {
             return;
         }
         Block block = event.getClickedBlock();
-        if (block == null || !isForceFieldMaterial(block.getType())) {
+        if (block == null) {
             return;
         }
-        ForceFieldZone zone = ZoneLookup.findEnabledZoneContaining(fields, block.getLocation(), block.getType(), sphereShellMaterial());
+        ForceFieldZone zone = findProtectingZone(block);
         if (zone == null) {
             return;
         }
@@ -104,15 +124,11 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onBlockExplode(BlockExplodeEvent event) {
-        Material shellMaterial = sphereShellMaterial();
-        event.blockList().removeIf(b -> isForceFieldMaterial(b.getType())
-                && ZoneLookup.findEnabledZoneContaining(fields, b.getLocation(), b.getType(), shellMaterial) != null);
+        event.blockList().removeIf(b -> findProtectingZone(b) != null);
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent event) {
-        Material shellMaterial = sphereShellMaterial();
-        event.blockList().removeIf(b -> isForceFieldMaterial(b.getType())
-                && ZoneLookup.findEnabledZoneContaining(fields, b.getLocation(), b.getType(), shellMaterial) != null);
+        event.blockList().removeIf(b -> findProtectingZone(b) != null);
     }
 }

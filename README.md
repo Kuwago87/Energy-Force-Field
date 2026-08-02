@@ -228,10 +228,13 @@ scale involved:
   out before it seals, not just an animation. Already-placed shell blocks
   are fully protected (unbreakable) from the instant they go down, even
   while the rest is still filling in.
-- **Changing the radius always lowers the field first** if it's currently
-  raised, and leaves it lowered - resizing means restoring the old shell
-  before the new one can be captured, so you'll need to click the lever
-  again afterward to raise it at the new size.
+- **Changing the radius applies live** if the beacon's currently raised -
+  the shell transitions straight from the old size to the new one (the same
+  restore/fill machinery a merged neighbor's wall reseal uses) without ever
+  fully coming down, so there's no need to click the lever again afterward.
+  The size buttons stay open after picking one too, so you can immediately
+  hit On/Off in the same menu instead of having to re-right-click the
+  beacon.
 - The beacon *is* the field's generator, and it's fully protected - punching
   it, blowing it up, anything, does nothing. The **only** way to remove one
   is its own control GUI's **Delete** button, which deletes the field and
@@ -354,7 +357,10 @@ don't own unless it's public or they're an admin.
 - Raising a field only turns its currently *empty/passable* blocks into
   barriers - solid blocks caught inside the selection (a door frame, the
   floor, the ceiling, decorations, ...) are left completely untouched, so
-  they stay visible and don't get overwritten.
+  they stay visible and don't get overwritten. They're still fully
+  protected while the field is up, exactly like the barrier/shell blocks
+  themselves - breaking one back out would otherwise open a real,
+  permanent gap straight through an otherwise-sealed field.
 - Barrier blocks are invisible in survival by design (that's the Star
   Trek look) - in creative mode players can see their outline with F3+B
   enabled, same as any other barrier block.

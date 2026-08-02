@@ -599,7 +599,6 @@ public final class FieldManager {
         }
         zone.setEnabled(anyEnabled);
         save();
-        int[][] newShell = combinedShellOfEnabled(zone);
 
         int[][] toRestore;
         int[][] toFill;
@@ -615,23 +614,9 @@ public final class FieldManager {
             toRestore = baselinePoints(zone);
             toFill = new int[0][];
         } else {
-            Set<String> oldKeys = toKeySet(oldShell);
-            Set<String> newKeys = toKeySet(newShell);
-
-            List<int[]> toRestoreList = new ArrayList<>();
-            for (int[] p : oldShell) {
-                if (!newKeys.contains(ForceFieldZone.key(p[0], p[1], p[2]))) {
-                    toRestoreList.add(p);
-                }
-            }
-            List<int[]> toFillList = new ArrayList<>();
-            for (int[] p : newShell) {
-                if (!oldKeys.contains(ForceFieldZone.key(p[0], p[1], p[2]))) {
-                    toFillList.add(p);
-                }
-            }
-            toRestore = toRestoreList.toArray(new int[0][]);
-            toFill = sortTopDown(toFillList.toArray(new int[0][]));
+            int[][][] diff = diffShells(oldShell, combinedShellOfEnabled(zone));
+            toRestore = diff[0];
+            toFill = diff[1];
         }
 
         Runnable finish = () -> {
@@ -647,9 +632,49 @@ public final class FieldManager {
             }
         };
 
+        runShellTransition(world, zone, toRestore, toFill, finish);
+    }
+
+    /**
+     * Diffs two computed shells into "what needs to drop back to baseline"
+     * and "what needs to be newly filled" - shared by every operation that
+     * transitions a spherical zone's live shell from one shape to another
+     * (a single component toggling on/off, or now resizing live while
+     * raised). Returns a two-element array: {@code [toRestore, toFill]}.
+     */
+    private static int[][][] diffShells(int[][] oldShell, int[][] newShell) {
+        Set<String> oldKeys = toKeySet(oldShell);
+        Set<String> newKeys = toKeySet(newShell);
+
+        List<int[]> toRestoreList = new ArrayList<>();
+        for (int[] p : oldShell) {
+            if (!newKeys.contains(ForceFieldZone.key(p[0], p[1], p[2]))) {
+                toRestoreList.add(p);
+            }
+        }
+        List<int[]> toFillList = new ArrayList<>();
+        for (int[] p : newShell) {
+            if (!oldKeys.contains(ForceFieldZone.key(p[0], p[1], p[2]))) {
+                toFillList.add(p);
+            }
+        }
+        return new int[][][]{
+                toRestoreList.toArray(new int[0][]),
+                sortTopDown(toFillList.toArray(new int[0][]))
+        };
+    }
+
+    /**
+     * Runs the actual two-stage ticked transition shared by every spherical
+     * zone shape change: first restores {@code toRestore} to baseline (fast
+     * pace), then fills {@code toFill} with the field's own material (slower,
+     * tactical-window pace), then calls {@code onComplete}. Either list can
+     * be empty, in which case that stage is skipped.
+     */
+    private void runShellTransition(World world, ForceFieldZone zone, int[][] toRestore, int[][] toFill, Runnable onComplete) {
         Runnable doFill = () -> {
             if (toFill.length == 0) {
-                finish.run();
+                onComplete.run();
                 return;
             }
             BlockData shell = sphereShellMaterial().createBlockData();
@@ -660,7 +685,7 @@ public final class FieldManager {
                             block.setBlockData(shell, false);
                         }
                     },
-                    finish
+                    onComplete
             ).start(plugin);
         };
 
@@ -689,15 +714,18 @@ public final class FieldManager {
 
     /**
      * Resizes one beacon's own component within a (possibly merged)
-     * spherical zone to a new radius. If that component is currently raised,
-     * it's turned off first (via the same diff-based logic as its own
-     * lever - so a merged neighbor that's still on is left completely
-     * undisturbed) and left off afterward - the player needs to raise it
-     * again at the new size. Does nothing if a sphere operation is already
-     * in progress for this zone, or if it isn't a spherical zone at all.
+     * spherical zone to a new radius. If it's currently raised, the change
+     * applies live - the shell transitions straight from the old radius to
+     * the new one (restoring whatever the old shape no longer needs and
+     * filling in the new shape, exactly like a merged neighbor's wall
+     * reseals when one side toggles) without ever fully coming down, so
+     * there's no need to manually raise it again afterward. A merged
+     * neighbor's own state is never touched either way. Does nothing if a
+     * sphere operation is already in progress for this zone, or if it isn't
+     * a spherical zone at all.
      */
     public void setComponentRadius(ForceFieldZone zone, ForceFieldZone.SphereComponent component, int newRadius) {
-        if (!zone.isSpherical() || busySphereZones.contains(zone.getId())) {
+        if (!zone.isSpherical() || busySphereZones.contains(zone.getId()) || component.getRadius() == newRadius) {
             return;
         }
         World world = Bukkit.getWorld(zone.getCuboid().getWorldName());
@@ -705,22 +733,83 @@ public final class FieldManager {
             return;
         }
         if (component.isEnabled()) {
-            setComponentEnabledInternal(zone, world, component, false, () -> applyComponentRadius(zone, component, newRadius));
+            resizeComponentLive(zone, world, component, newRadius);
         } else {
-            applyComponentRadius(zone, component, newRadius);
+            applyComponentRadius(zone, world, component, newRadius);
         }
     }
 
-    private void applyComponentRadius(ForceFieldZone zone, ForceFieldZone.SphereComponent component, int newRadius) {
-        World world = Bukkit.getWorld(zone.getCuboid().getWorldName());
-        if (world == null) {
-            return;
-        }
+    /** Resizes a currently-lowered component - nothing's live, so this just updates the shape and its baseline coverage. Nothing in the zone is currently rendered as shell, so every untracked point is safely real terrain. */
+    private void applyComponentRadius(ForceFieldZone zone, World world, ForceFieldZone.SphereComponent component, int newRadius) {
         zone.resizeSphereComponent(component, newRadius);
         invalidateShellCaches(zone.getId());
-        Map<String, String> newBaseline = captureSphereBaseline(world, zone.getSphereComponents());
-        zone.getBaseline().clear();
-        zone.getBaseline().putAll(newBaseline);
+        captureNewBaselinePoints(zone, world, component, Set.of());
+    }
+
+    /**
+     * The live-resize path: captures the current shell, applies the new
+     * radius, additively captures baseline for whatever of the new shape
+     * isn't already tracked (see applyComponentRadius's own note on why this
+     * must never clear-and-recapture), then transitions the live shell from
+     * old to new via the same diff/two-stage-fill machinery every other
+     * shape change uses. The component's enabled state never changes here -
+     * it stays raised throughout.
+     */
+    private void resizeComponentLive(ForceFieldZone zone, World world, ForceFieldZone.SphereComponent component, int newRadius) {
+        if (!busySphereZones.add(zone.getId())) {
+            return;
+        }
+        int[][] oldShell = combinedShellOfEnabled(zone);
+        zone.resizeSphereComponent(component, newRadius);
+        invalidateShellCaches(zone.getId());
+        // Skip capturing baseline for any point that's still part of the
+        // *pre-resize* live shell - it hasn't been restored yet, so its
+        // current block is whatever's actually raised right now (this
+        // component's own old shell, or even a merged neighbor's), never
+        // genuine terrain. Capturing it here would permanently bake "shell
+        // material" into the baseline for that point - which no later
+        // restore, however thorough, could ever see past, since it would
+        // just be putting the block back to what baseline says is correct.
+        // That's exactly what could leave an untouchable leftover behind
+        // after a resize.
+        captureNewBaselinePoints(zone, world, component, toKeySet(oldShell));
+        save();
+
+        int[][][] diff = diffShells(oldShell, combinedShellOfEnabled(zone));
+        runShellTransition(world, zone, diff[0], diff[1], () -> {
+            busySphereZones.remove(zone.getId());
+            save();
+            effects.playActivate(world, new Location(world, component.getX() + 0.5, component.getY() + 0.5, component.getZ() + 0.5), component.getRadius());
+        });
+    }
+
+    /**
+     * Captures baseline for one component's own full hollow shell at its
+     * (already-updated) radius - only for points not already tracked, same
+     * as merging a new beacon into a zone (see addBeaconToZone). Deliberately
+     * <b>not</b> a clear-and-recapture via the zone's current merged/
+     * wall-stripped shape: that shape excludes every overlap "wall" point by
+     * design, so wiping the baseline down to just it would silently drop
+     * baseline coverage for that overlap region - and a merged neighbor
+     * turning off later needs exactly those points to reseal into (or fully
+     * restore back out of) a complete sphere. That's precisely what once
+     * left a leftover chunk of shell behind after a resize. {@code skipKeys}
+     * additionally excludes any point that's still part of a not-yet-restored
+     * live shell, so a currently-rendered block never gets mistaken for
+     * terrain (see resizeComponentLive).
+     */
+    private void captureNewBaselinePoints(ForceFieldZone zone, World world, ForceFieldZone.SphereComponent component, Set<String> skipKeys) {
+        for (int[] o : SphereGeometry.hollowShellOffsets(component.getRadius())) {
+            int wx = component.getX() + o[0];
+            int wy = component.getY() + o[1];
+            int wz = component.getZ() + o[2];
+            String key = ForceFieldZone.key(wx, wy, wz);
+            if (skipKeys.contains(key) || zone.getBaseline().containsKey(key)) {
+                continue;
+            }
+            Block block = world.getBlockAt(wx, wy, wz);
+            zone.getBaseline().put(key, block.getBlockData().getAsString());
+        }
         save();
     }
 
