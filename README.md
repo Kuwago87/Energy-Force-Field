@@ -4,8 +4,7 @@ A Paper plugin that protect any doorway, wall in gap, or area (portable generato
 
 ## Requirements
 
-- Paper (or a Paper fork) for Minecraft / Paper API **26.2** (what used to
-  be called "1.26.2")
+- Paper Minecraft / Paper API "1.26.2"
 - JDK 25 to build
 - Maven 3.9+
 
