@@ -1,10 +1,15 @@
 # EFF - Energy Force Field
 
-A Paper plugin that protect any doorway, wall in gap, or area (portable generator) with an Energy Force Field, controlled through a GUI. Raise it and it becomes a solid barrier.
+A Paper plugin that turns any doorway, wall gap, or open area into a Star
+Trek style energy shield, controlled through an in-game GUI. Raise it and
+it becomes a solid, invisible barrier that crackles with `sculk_charge_pop`
+particles and hums; lower it and the space opens back up exactly as it was
+before.
 
 ## Requirements
 
-- Paper Minecraft / Paper API "1.26.2"
+- Paper (or a Paper fork) for Minecraft / Paper API **26.2** (what used to
+  be called "1.26.2")
 - JDK 25 to build
 - Maven 3.9+
 
@@ -90,8 +95,16 @@ your server's `plugins/` folder and (re)start the server.
 
    Both the Rename and Change Owner prompts work the same way: click,
    type your answer in chat (or `cancel`), and it applies within 30
-   seconds by default. Change Owner only accepts a currently online
-   player's exact username.
+   seconds by default. Change Owner accepts a currently online player's
+   exact username, **or** the reserved name `Ancients` - a placeholder
+   owner for fields that shouldn't belong to any real player (ancient
+   ruins, server lore builds, that kind of thing). Handing a field to
+   `Ancients` requires being an actual server operator, not just holding
+   `forcefield.admin` - a permissions plugin can grant that node to
+   non-op admins too, and this is meant to sit a step above that. From
+   then on the field can only be managed by `forcefield.admin` (no real
+   player owns it, so ownership checks never pass), and it can be handed
+   back to a real player the normal way at any time.
 
 ## Lecterns (the physical on/off switch)
 
@@ -230,10 +243,34 @@ scale involved:
   The size buttons stay open after picking one too, so you can immediately
   hit On/Off in the same menu instead of having to re-right-click the
   beacon.
-- The beacon *is* the field's generator, and it's fully protected - punching
-  it, blowing it up, anything, does nothing. The **only** way to remove one
-  is its own control GUI's **Delete** button, which deletes the field and
-  breaks the beacon together. There's no separate "replacement beacon" item
+- **A beacon placed underwater** (water on the beacon block itself or any of
+  its 6 neighbors, checked once at placement) drains its own interior when
+  raised - the water empties out along with the shell forming - and lets it
+  flow back in as it lowers. Kelp and seagrass drain (and grow back) right
+  along with the water, not just left standing in the newly-dry bubble - they
+  don't use a separate waterlogged flag like most aquatic plants, so the
+  plant block itself is treated as drainable too, and its exact state
+  (including kelp's growth stage) is restored on refill. Because the drain
+  touches the field's entire interior volume rather than just its shell, an
+  underwater beacon's radius is capped (`beacon-field-underwater-max-radius`,
+  25 blocks by default) - the size buttons clamp down to it even if a larger
+  preset is clicked, and this is permanent for that beacon since underwater
+  status is fixed at placement. Drain/refill speed has its own settings
+  (`beacon-underwater-drain-blocks-per-tick` /
+  `beacon-underwater-refill-blocks-per-tick`), separate from the shell's own
+  raise/lower speed.
+- The beacon *is* the field's generator. A real explosion (TNT, creeper,
+  etc.) still can't touch it - that's always blocked, same as before. The
+  owner (or an admin) can punch it down directly, same as the GUI's own
+  **Delete** button, and gets the item back. Anyone else punching it is only
+  let through if that beacon's own bubble is currently raised, and it's a
+  trap when they are: the beacon (and the field with it) still comes down,
+  but instead of walking off with a very expensive block, they get an
+  explosion animation and are instantly killed on the spot - only them,
+  nothing around them is actually harmed, and the beacon drops nothing.
+  Punching an already-*lowered* field that isn't theirs stays fully
+  protected, exactly like before this existed - there's no trap to spring on
+  an inactive field. There's still no separate "replacement beacon" item
   like lecterns have, since there's nothing to replace.
 - The ambient shimmer scales with the bubble's actual surface area
   (`beacon-ambient-blocks-per-particle`, capped by
@@ -264,6 +301,13 @@ exception - they follow the same rule unless a field is marked Public (see
 [Lecterns](#lecterns-the-physical-onoff-switch)). The regular book's list
 only ever shows your own fields; admins can see and manage every field (and
 reassign its owner) from the admin book instead.
+
+A field can also be owned by nobody real at all - server operators can
+reassign a field to the reserved placeholder owner `Ancients` from the
+admin book's Change Owner prompt. No player ever matches that ownership,
+so from that point on only `forcefield.admin` can manage it; it's meant
+for fields that are part of the world rather than any particular player's
+base.
 
 ## Chat commands (for admins / precise control)
 
@@ -328,6 +372,8 @@ don't own unless it's public or they're an admin.
 - `beacon-fields-list-icon-material` - the icon used for beacon fields specifically in the "My Energy Force Fields" list GUI (a Beacon by default, distinct from rod fields' icon)
 - `crystal-remote-range` - how far (in blocks) the On/Off remote's line-of-sight check reaches
 - `beacon-field-radius-small` / `beacon-field-radius-medium` / `beacon-field-radius-large` - the three preset radii (in blocks) offered by a beacon field's own control GUI (50/150/250 by default); it starts at the small radius when first placed
+- `beacon-field-underwater-max-radius` - the hard radius cap (in blocks) for a beacon placed underwater, since draining its interior scales with the cube of the radius (25 by default); overrides all three presets above for that beacon
+- `beacon-underwater-drain-blocks-per-tick` / `beacon-underwater-refill-blocks-per-tick` - how many interior blocks an underwater beacon drains/refills per tick (2000 / 4000 by default)
 - `beacon-field-max-per-player` - how many Force Field Generators one player can have placed at once (2 by default); placing one inside your own existing bubble merges it in instead of using a new slot on top of that limit (see [Beacon limit and merging bubbles](#beacon-limit-and-merging-bubbles))
 - `sphere-raise-blocks-per-tick` / `sphere-lower-blocks-per-tick` - how many of a beacon field's shell blocks are placed/restored per tick (1000 raising / 8000 lowering by default) - raising is intentionally slower so the shell's top-down fill gives players a real window to get in or out before it seals
 - `beacon-ambient-blocks-per-particle` / `beacon-ambient-particle-cap` - controls how dense a beacon field's ambient shimmer is (one particle per this-many shell blocks per pass, up to the cap) - lower the first number for a more visible shimmer
@@ -370,15 +416,6 @@ don't own unless it's public or they're an admin.
 
 EFF reports anonymous usage stats via [bStats](https://bstats.org/plugin/bukkit/EFF/33044)
 (plugin id `33044`) - things like player count, server version, and Java
-
 version, the same as most Bukkit/Paper plugins. No personal data is
 collected. This can be turned off server-wide in `plugins/bStats/config.yml`
 (`enabled: false`) without affecting anything else in EFF.
-
-## Shameless plug:
-
-Minecraft Builds
-
-Planet Minecraft Builds:
-
-https://www.planetminecraft.com/member/kuwago/

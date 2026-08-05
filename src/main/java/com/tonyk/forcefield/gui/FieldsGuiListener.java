@@ -287,6 +287,8 @@ public final class FieldsGuiListener implements Listener {
             player.sendMessage(Component.text("Type the new owner's exact username in chat for '" + zone.getName()
                     + "' (or type 'cancel'). They must be online. You have "
                     + (ownerChangeWindowMs() / 1000) + " seconds.", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text("Server operators can instead type '" + FieldManager.ANCIENTS_NAME
+                    + "' to hand this field off to that reserved placeholder owner.", NamedTextColor.GRAY));
         } else if (slot == FieldDetailMenu.COMPASS_SLOT) {
             pointCompass(player, zone);
         } else if (slot == FieldDetailMenu.PUBLIC_SLOT) {
@@ -376,6 +378,24 @@ public final class FieldsGuiListener implements Listener {
             player.sendMessage(Component.text("That field no longer exists.", NamedTextColor.RED));
             return;
         }
+
+        // "Ancients" is a reserved placeholder owner, not a real player -
+        // handing a field off to it needs true operator status on top of
+        // the forcefield.admin check above, since a permissions plugin can
+        // hand that node to non-op admins too and this is meant to be a
+        // step above that. No online-player lookup applies here.
+        if (targetName.equalsIgnoreCase(FieldManager.ANCIENTS_NAME)) {
+            if (!player.isOp()) {
+                player.sendMessage(Component.text("Only server operators can hand a field off to '"
+                        + FieldManager.ANCIENTS_NAME + "'.", NamedTextColor.RED));
+                return;
+            }
+            fields.changeOwner(zoneName, FieldManager.ANCIENTS_UUID, FieldManager.ANCIENTS_NAME);
+            player.sendMessage(Component.text("'" + zoneName + "' is now owned by " + FieldManager.ANCIENTS_NAME
+                    + " - only admins can manage it from here on.", NamedTextColor.GREEN));
+            return;
+        }
+
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
             player.sendMessage(Component.text("No online player named '" + targetName

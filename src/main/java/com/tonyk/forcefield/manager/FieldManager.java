@@ -41,6 +41,19 @@ import java.util.logging.Level;
  */
 public final class FieldManager {
 
+    /**
+     * A fixed, non-random UUID standing in for "no real player" - used as
+     * the owner of a zone deliberately handed off to the reserved "Ancients"
+     * placeholder (see FieldsGuiListener#finishOwnerChange). It will never
+     * match a real player's UUID (those are always version-4 random, and
+     * this one is hand-picked and all zeroes), so {@link
+     * ForceFieldZone#isOwnedBy} is permanently false for it - only
+     * forcefield.admin can manage a field owned by Ancients from then on,
+     * same as any other zone nobody currently online happens to own.
+     */
+    public static final UUID ANCIENTS_UUID = new UUID(0L, 0L);
+    public static final String ANCIENTS_NAME = "Ancients";
+
     private final JavaPlugin plugin;
     private final EffectService effects;
     private final File file;
@@ -317,9 +330,12 @@ public final class FieldManager {
      * Field Beacon when it's not placed inside one of the player's existing
      * bubbles. Unlike a cuboid zone, only the hollow shell's blocks are
      * captured/touched, never the solid interior (a filled ball at a 250
-     * radius would be tens of millions of blocks).
+     * radius would be tens of millions of blocks) - except for an
+     * <b>underwater</b> component, whose interior gets drained/refilled
+     * separately (see the interior drain/refill machinery below), which is
+     * exactly why an underwater beacon is capped to a much smaller radius.
      */
-    public ForceFieldZone createSphereZone(String name, Location center, int radius, UUID ownerUuid, String ownerName) {
+    public ForceFieldZone createSphereZone(String name, Location center, int radius, UUID ownerUuid, String ownerName, boolean underwater) {
         World world = center.getWorld();
         if (world == null) {
             throw new IllegalStateException("Beacon location has no world.");
@@ -327,7 +343,7 @@ public final class FieldManager {
 
         ForceFieldZone zone = new ForceFieldZone(UUID.randomUUID(), name, world.getName(), false, new LinkedHashMap<>());
         ForceFieldZone.SphereComponent component = new ForceFieldZone.SphereComponent(
-                UUID.randomUUID(), center.getBlockX(), center.getBlockY(), center.getBlockZ(), radius, false);
+                UUID.randomUUID(), center.getBlockX(), center.getBlockY(), center.getBlockZ(), radius, false, underwater);
         zone.addSphereComponent(component);
         zone.setOwner(ownerUuid, ownerName);
 
@@ -351,7 +367,7 @@ public final class FieldManager {
      * against whatever else in the group happens to already be up. This is
      * why merging never needs to disturb an already-raised bubble.
      */
-    public ForceFieldZone addBeaconToZone(ForceFieldZone zone, Location loc, int radius) {
+    public ForceFieldZone addBeaconToZone(ForceFieldZone zone, Location loc, int radius, boolean underwater) {
         World world = loc.getWorld();
         if (world == null) {
             throw new IllegalStateException("Beacon location has no world.");
@@ -377,7 +393,7 @@ public final class FieldManager {
         }
 
         ForceFieldZone.SphereComponent component = new ForceFieldZone.SphereComponent(
-                UUID.randomUUID(), x, y, z, radius, false);
+                UUID.randomUUID(), x, y, z, radius, false, underwater);
         zone.addSphereComponent(component);
         invalidateShellCaches(zone.getId());
         save();
@@ -454,6 +470,37 @@ public final class FieldManager {
         int[][] generated = SphereGeometry.combinedShellWorldPoints(toComponentArray(enabledOnly));
         shellCacheEnabled.put(zone.getId(), generated);
         return generated;
+    }
+
+    /**
+     * The interior volume actually drained right now - the union of every
+     * currently-raised <b>underwater</b> component's own solid interior. A
+     * non-underwater component (or a disabled one) contributes nothing here.
+     * Deliberately shrunk 2 blocks in from each component's own radius so
+     * this can never overlap the shell itself - snapshotting or draining a
+     * point that's still genuinely part of a live shell would fight with the
+     * shell fill/restore machinery (the same class of problem fixed for the
+     * live-resize baseline capture).
+     */
+    private int[][] interiorOffsetsOfEnabled(ForceFieldZone zone) {
+        Set<String> seen = new HashSet<>();
+        List<int[]> points = new ArrayList<>();
+        for (ForceFieldZone.SphereComponent c : zone.getSphereComponents()) {
+            if (!c.isEnabled() || !c.isUnderwater()) {
+                continue;
+            }
+            int interiorRadius = Math.max(0, c.getRadius() - 2);
+            for (int[] o : SphereGeometry.solidBallOffsets(interiorRadius)) {
+                int wx = c.getX() + o[0];
+                int wy = c.getY() + o[1];
+                int wz = c.getZ() + o[2];
+                String key = ForceFieldZone.key(wx, wy, wz);
+                if (seen.add(key)) {
+                    points.add(new int[]{wx, wy, wz});
+                }
+            }
+        }
+        return points.toArray(new int[0][]);
     }
 
     private static int[][] sortTopDown(int[][] points) {
@@ -547,6 +594,37 @@ public final class FieldManager {
         }
     }
 
+    /**
+     * Synchronous counterpart to {@link #runInteriorTransition}'s refill
+     * stage, used by removeBeaconComponent (which restores its shell
+     * synchronously too, not via a ticked task). Refills every point in
+     * {@code oldInterior} that isn't part of {@code newKeys} back to
+     * whatever baseline was captured for it - an untracked point is left
+     * alone, since that just means nothing was ever drained there.
+     */
+    private void refillDroppedInteriorPoints(ForceFieldZone zone, World world, int[][] oldInterior, Set<String> newKeys) {
+        if (oldInterior == null) {
+            return;
+        }
+        Map<String, String> baseline = zone.getBaseline();
+        for (int[] p : oldInterior) {
+            String key = ForceFieldZone.key(p[0], p[1], p[2]);
+            if (newKeys.contains(key)) {
+                continue;
+            }
+            String dataString = baseline.get(key);
+            if (dataString == null) {
+                continue;
+            }
+            Block block = world.getBlockAt(p[0], p[1], p[2]);
+            try {
+                block.setBlockData(Bukkit.createBlockData(dataString), false);
+            } catch (IllegalArgumentException ignored) {
+                // Corrupt stored data - leave the block as-is rather than guess.
+            }
+        }
+    }
+
     private Map<String, String> captureSphereBaseline(World world, List<ForceFieldZone.SphereComponent> components) {
         Map<String, String> baseline = new LinkedHashMap<>();
         for (int[] p : SphereGeometry.combinedShellWorldPoints(toComponentArray(components))) {
@@ -588,6 +666,7 @@ public final class FieldManager {
         }
 
         int[][] oldShell = combinedShellOfEnabled(zone);
+        int[][] oldInterior = interiorOffsetsOfEnabled(zone);
         zone.setComponentEnabled(component, targetEnabled);
         invalidateShellCaches(zone.getId());
         boolean anyEnabled = false;
@@ -602,6 +681,8 @@ public final class FieldManager {
 
         int[][] toRestore;
         int[][] toFill;
+        int[][] toRefill;
+        int[][] toDrain;
         if (!anyEnabled) {
             // Every component in the zone just turned off - rather than trust
             // a diff between the old and new *computed* shells (which relies
@@ -611,13 +692,24 @@ public final class FieldManager {
             // captured a baseline for. Re-restoring an already-baseline block
             // is a harmless no-op, so this unconditionally leaves nothing
             // behind once the whole (possibly merged) bubble is fully down.
+            // That set already includes any drained-water entries too, so
+            // there's nothing extra to refill here.
             toRestore = baselinePoints(zone);
             toFill = new int[0][];
+            toRefill = new int[0][];
+            toDrain = new int[0][];
         } else {
-            int[][][] diff = diffShells(oldShell, combinedShellOfEnabled(zone));
-            toRestore = diff[0];
-            toFill = diff[1];
+            int[][] newShell = combinedShellOfEnabled(zone);
+            int[][][] shellDiff = diffShells(oldShell, newShell);
+            toRestore = shellDiff[0];
+            toFill = shellDiff[1];
+
+            int[][][] interiorDiff = diffShells(oldInterior, interiorOffsetsOfEnabled(zone));
+            toRefill = interiorDiff[0];
+            toDrain = interiorDiff[1];
         }
+
+        Set<String> liveShellKeys = toKeySet(combinedShellOfEnabled(zone));
 
         Runnable finish = () -> {
             busySphereZones.remove(zone.getId());
@@ -632,7 +724,10 @@ public final class FieldManager {
             }
         };
 
-        runShellTransition(world, zone, toRestore, toFill, finish);
+        int[][] finalToRefill = toRefill;
+        int[][] finalToDrain = toDrain;
+        runShellTransition(world, zone, toRestore, toFill,
+                () -> runInteriorTransition(world, zone, finalToRefill, finalToDrain, liveShellKeys, finish));
     }
 
     /**
@@ -713,6 +808,84 @@ public final class FieldManager {
     }
 
     /**
+     * Kelp and seagrass don't store a "waterlogged" flag like most aquatic
+     * plants - the block itself (KELP/KELP_PLANT/SEAGRASS/TALL_SEAGRASS) IS
+     * the submerged tile, with no separate water block underneath it to
+     * drain. Left alone, draining would clear every literal WATER block
+     * around them but skip the plant itself, leaving soggy-looking stalks
+     * standing in what's supposed to be a dry bubble. Treated as drainable
+     * here too, so they come out (and get restored, growth stage and all,
+     * via their captured block data) right along with the water.
+     */
+    private static boolean isDrainable(Material type) {
+        return type == Material.WATER
+                || type == Material.KELP
+                || type == Material.KELP_PLANT
+                || type == Material.SEAGRASS
+                || type == Material.TALL_SEAGRASS;
+    }
+
+    /**
+     * The underwater interior's own two-stage ticked transition, run after
+     * the shell transition finishes: first refills {@code toRefill} back to
+     * whatever baseline was captured for it (water, kelp, or seagrass,
+     * almost always - and unlike the shell restore, an untracked point is
+     * simply left alone rather than defaulted to air, since "untracked" here
+     * just means this plugin never drained it in the first place), then
+     * drains {@code toDrain} - any block that's currently water or an
+     * unlogged aquatic plant (see {@link #isDrainable}) gets captured to
+     * baseline (unless it's still part of {@code liveShellKeys}, i.e. still
+     * genuinely part of a live shell and not safe to snapshot yet - see
+     * interiorOffsetsOfEnabled) and cleared to air. Anything else in the
+     * drain set is left completely untouched.
+     */
+    private void runInteriorTransition(World world, ForceFieldZone zone, int[][] toRefill, int[][] toDrain,
+                                        Set<String> liveShellKeys, Runnable onComplete) {
+        Map<String, String> baseline = zone.getBaseline();
+
+        Runnable doDrain = () -> {
+            if (toDrain.length == 0) {
+                onComplete.run();
+                return;
+            }
+            int drainPerTick = Math.max(1, plugin.getConfig().getInt("beacon-underwater-drain-blocks-per-tick", 2000));
+            new SphereFillTask(world, 0, 0, 0, toDrain, drainPerTick,
+                    block -> {
+                        if (!isDrainable(block.getType())) {
+                            return;
+                        }
+                        String key = ForceFieldZone.key(block.getX(), block.getY(), block.getZ());
+                        if (!liveShellKeys.contains(key) && !baseline.containsKey(key)) {
+                            baseline.put(key, block.getBlockData().getAsString());
+                        }
+                        block.setType(Material.AIR, false);
+                    },
+                    onComplete
+            ).start(plugin);
+        };
+
+        if (toRefill.length == 0) {
+            doDrain.run();
+            return;
+        }
+        int refillPerTick = Math.max(1, plugin.getConfig().getInt("beacon-underwater-refill-blocks-per-tick", 4000));
+        new SphereFillTask(world, 0, 0, 0, toRefill, refillPerTick,
+                block -> {
+                    String dataString = baseline.get(ForceFieldZone.key(block.getX(), block.getY(), block.getZ()));
+                    if (dataString == null) {
+                        return;
+                    }
+                    try {
+                        block.setBlockData(Bukkit.createBlockData(dataString), false);
+                    } catch (IllegalArgumentException ignored) {
+                        // Corrupt stored data - leave the block as-is rather than guess.
+                    }
+                },
+                doDrain
+        ).start(plugin);
+    }
+
+    /**
      * Resizes one beacon's own component within a (possibly merged)
      * spherical zone to a new radius. If it's currently raised, the change
      * applies live - the shell transitions straight from the old radius to
@@ -722,10 +895,17 @@ public final class FieldManager {
      * there's no need to manually raise it again afterward. A merged
      * neighbor's own state is never touched either way. Does nothing if a
      * sphere operation is already in progress for this zone, or if it isn't
-     * a spherical zone at all.
+     * a spherical zone at all. An underwater component's requested radius is
+     * silently clamped to {@link #underwaterMaxRadius()} - draining its
+     * interior costs roughly its volume rather than just its surface, so
+     * this is what keeps that affordable.
      */
     public void setComponentRadius(ForceFieldZone zone, ForceFieldZone.SphereComponent component, int newRadius) {
-        if (!zone.isSpherical() || busySphereZones.contains(zone.getId()) || component.getRadius() == newRadius) {
+        if (!zone.isSpherical() || busySphereZones.contains(zone.getId())) {
+            return;
+        }
+        int clampedRadius = component.isUnderwater() ? Math.min(newRadius, underwaterMaxRadius()) : newRadius;
+        if (component.getRadius() == clampedRadius) {
             return;
         }
         World world = Bukkit.getWorld(zone.getCuboid().getWorldName());
@@ -733,10 +913,15 @@ public final class FieldManager {
             return;
         }
         if (component.isEnabled()) {
-            resizeComponentLive(zone, world, component, newRadius);
+            resizeComponentLive(zone, world, component, clampedRadius);
         } else {
-            applyComponentRadius(zone, world, component, newRadius);
+            applyComponentRadius(zone, world, component, clampedRadius);
         }
+    }
+
+    /** The radius cap applied to any underwater beacon component - see setComponentRadius and interiorOffsetsOfEnabled. */
+    public int underwaterMaxRadius() {
+        return Math.max(1, plugin.getConfig().getInt("beacon-field-underwater-max-radius", 25));
     }
 
     /** Resizes a currently-lowered component - nothing's live, so this just updates the shape and its baseline coverage. Nothing in the zone is currently rendered as shell, so every untracked point is safely real terrain. */
@@ -760,6 +945,7 @@ public final class FieldManager {
             return;
         }
         int[][] oldShell = combinedShellOfEnabled(zone);
+        int[][] oldInterior = interiorOffsetsOfEnabled(zone);
         zone.resizeSphereComponent(component, newRadius);
         invalidateShellCaches(zone.getId());
         // Skip capturing baseline for any point that's still part of the
@@ -775,12 +961,18 @@ public final class FieldManager {
         captureNewBaselinePoints(zone, world, component, toKeySet(oldShell));
         save();
 
-        int[][][] diff = diffShells(oldShell, combinedShellOfEnabled(zone));
-        runShellTransition(world, zone, diff[0], diff[1], () -> {
+        int[][][] shellDiff = diffShells(oldShell, combinedShellOfEnabled(zone));
+        int[][][] interiorDiff = diffShells(oldInterior, interiorOffsetsOfEnabled(zone));
+        Set<String> liveShellKeys = toKeySet(combinedShellOfEnabled(zone));
+
+        Runnable finish = () -> {
             busySphereZones.remove(zone.getId());
             save();
             effects.playActivate(world, new Location(world, component.getX() + 0.5, component.getY() + 0.5, component.getZ() + 0.5), component.getRadius());
-        });
+        };
+
+        runShellTransition(world, zone, shellDiff[0], shellDiff[1],
+                () -> runInteriorTransition(world, zone, interiorDiff[0], interiorDiff[1], liveShellKeys, finish));
     }
 
     /**
@@ -834,6 +1026,7 @@ public final class FieldManager {
         World world = Bukkit.getWorld(zone.getCuboid().getWorldName());
         boolean liveUpdate = component.isEnabled() && world != null && !busySphereZones.contains(zone.getId());
         int[][] oldShell = liveUpdate ? combinedShellOfEnabled(zone) : null;
+        int[][] oldInterior = liveUpdate ? interiorOffsetsOfEnabled(zone) : null;
 
         zone.removeSphereComponent(component.getId());
         invalidateShellCaches(zone.getId());
@@ -860,6 +1053,12 @@ public final class FieldManager {
                     baseline.remove(key);
                 }
             }
+
+            // If the removed beacon was underwater, whatever's left of its
+            // own drained interior (minus anything a remaining underwater
+            // neighbor still needs) floods back in right away too.
+            Set<String> newInteriorKeys = toKeySet(interiorOffsetsOfEnabled(zone));
+            refillDroppedInteriorPoints(zone, world, oldInterior, newInteriorKeys);
         }
 
         save();
@@ -1038,7 +1237,13 @@ public final class FieldManager {
         }.runTaskTimer(plugin, 1L, 1L);
     }
 
-    /** The actual top-down shell fill, run once a beacon field's beam(s) have finished charging up to full length. */
+    /**
+     * The actual top-down shell fill, run once a beacon field's beam(s) have
+     * finished charging up to full length. Once the shell itself is done,
+     * any underwater component's interior gets drained too (a bulk raise
+     * always starts from every component fully off, so there's nothing to
+     * refill here - only to drain) before the zone is marked no longer busy.
+     */
     private void startSphereShellFill(ForceFieldZone zone, World world, Runnable extraOnComplete) {
         // Top-down order (not the plain cache) so the shell visibly forms
         // one horizontal band at a time from the top, instead of appearing
@@ -1054,14 +1259,18 @@ public final class FieldManager {
                     }
                 },
                 () -> {
-                    busySphereZones.remove(zone.getId());
-                    save();
-                    for (ForceFieldZone.SphereComponent c : zone.getSphereComponents()) {
-                        effects.playActivate(world, new Location(world, c.getX() + 0.5, c.getY() + 0.5, c.getZ() + 0.5), c.getRadius());
-                    }
-                    if (extraOnComplete != null) {
-                        extraOnComplete.run();
-                    }
+                    int[][] toDrain = interiorOffsetsOfEnabled(zone);
+                    Set<String> liveShellKeys = toKeySet(combinedShellOfEnabled(zone));
+                    runInteriorTransition(world, zone, new int[0][], toDrain, liveShellKeys, () -> {
+                        busySphereZones.remove(zone.getId());
+                        save();
+                        for (ForceFieldZone.SphereComponent c : zone.getSphereComponents()) {
+                            effects.playActivate(world, new Location(world, c.getX() + 0.5, c.getY() + 0.5, c.getZ() + 0.5), c.getRadius());
+                        }
+                        if (extraOnComplete != null) {
+                            extraOnComplete.run();
+                        }
+                    });
                 }
         ).start(plugin);
     }
@@ -1229,7 +1438,12 @@ public final class FieldManager {
                             // those since every component was always raised
                             // or lowered in lockstep back then.
                             boolean compEnabled = cs.getBoolean("enabled", enabled);
-                            zone.addSphereComponent(new ForceFieldZone.SphereComponent(compId, cx, cy, cz, cRadius, compEnabled));
+                            // Zones saved before underwater beacons existed
+                            // won't have this key either - default to false,
+                            // which is accurate (nothing before this feature
+                            // could ever have been underwater-capped).
+                            boolean compUnderwater = cs.getBoolean("underwater", false);
+                            zone.addSphereComponent(new ForceFieldZone.SphereComponent(compId, cx, cy, cz, cRadius, compEnabled, compUnderwater));
                         }
                     } else {
                         // Legacy single-sphere format from before beacons
@@ -1261,7 +1475,7 @@ public final class FieldManager {
                         }
 
                         zone = new ForceFieldZone(id, name, world, enabled, migratedBaseline);
-                        zone.addSphereComponent(new ForceFieldZone.SphereComponent(UUID.randomUUID(), cx, cy, cz, legacyRadius, enabled));
+                        zone.addSphereComponent(new ForceFieldZone.SphereComponent(UUID.randomUUID(), cx, cy, cz, legacyRadius, enabled, false));
                         assignedMissingId = true; // force a re-save so the migrated format is written back
                     }
                 } else {
@@ -1320,6 +1534,7 @@ public final class FieldManager {
                     cs.set("z", comp.getZ());
                     cs.set("radius", comp.getRadius());
                     cs.set("enabled", comp.isEnabled());
+                    cs.set("underwater", comp.isUnderwater());
                 }
             }
 

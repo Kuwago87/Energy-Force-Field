@@ -43,4 +43,18 @@ public final class Messages {
         }
         return LEGACY.deserialize(message);
     }
+
+    /**
+     * Same as {@link #component}, but without the "[EFF]" prefix - for
+     * messages that don't read like a plugin notice, such as the beacon
+     * trap's death message (which stands in for the vanilla death message
+     * broadcast to the whole server, and looks out of place with a prefix).
+     */
+    public Component rawComponent(String key, String... replacements) {
+        String message = raw(key);
+        for (int i = 0; i + 1 < replacements.length; i += 2) {
+            message = message.replace("%" + replacements[i] + "%", replacements[i + 1]);
+        }
+        return LEGACY.deserialize(message);
+    }
 }

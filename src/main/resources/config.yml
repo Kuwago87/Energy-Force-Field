@@ -71,6 +71,24 @@ beacon-field-radius-small: 25
 beacon-field-radius-medium: 50
 beacon-field-radius-large: 75
 
+# A beacon placed underwater (water directly on it or on any of its 6
+# neighboring blocks, checked once at placement) drains the water out of its
+# interior while raised and lets it flow back in when lowered - a nice touch,
+# but unlike the shell (surface area only), draining touches the field's
+# entire interior volume, which scales with the cube of the radius. This cap
+# overrides all three presets above for an underwater beacon (Medium/Large
+# both clamp down to it too) to keep that affordable - 25 blocks is about
+# 65,000 interior blocks; the default 250 large preset would be over 65
+# million if it weren't capped.
+beacon-field-underwater-max-radius: 25
+
+# How many interior blocks an underwater beacon drains/refills per tick.
+# Refilling defaults faster than draining for the same reason lowering is
+# faster than raising elsewhere - there's nothing left to "protect" once
+# it's on its way back to water.
+beacon-underwater-drain-blocks-per-tick: 2000
+beacon-underwater-refill-blocks-per-tick: 4000
+
 # How many Force Field Generators a single player can have placed at once,
 # across every bubble they own. Deleting one (via its own GUI's Delete
 # button) frees up a slot again. Set to 0 to block the tool entirely without
@@ -241,6 +259,8 @@ messages:
   beacon-field-created: "&aForce Field Generator placed - '&f%name%&a' is a %radius%-block bubble, lowered. Right-click it for controls."
   beacon-field-merged: "&aForce Field Generator placed - merged into '&f%name%&a' as a %radius%-block bubble. Right-click it for controls."
   beacon-field-resized: "&aEnergy Force Field '&f%name%&a' bubble radius set to %radius% blocks."
+  beacon-underwater-capped: "&bThat beacon is underwater - its bubble is capped at %max% blocks and will drain the water inside it while raised."
+  beacon-trap-death: "&c%player% was blown apart trying to break a Force Field Generator that wasn't theirs."
   beacon-limit-reached: "&cYou already have the maximum of %max% Force Field Generators placed. Delete one (via its own GUI) to place another."
   too-large: "&cThat selection is %blocks% blocks, which is over the %max% limit. Re-run with 'confirm' if you're sure: /forcefield create %name% confirm"
   resisted: "&7The energy field resists your efforts."

@@ -36,6 +36,7 @@ public final class SphereGeometry {
 
     private static final Map<Integer, int[][]> CACHE = new HashMap<>();
     private static final Map<Integer, int[][]> CACHE_TOP_DOWN = new HashMap<>();
+    private static final Map<Integer, int[][]> BALL_CACHE = new HashMap<>();
 
     private SphereGeometry() {
     }
@@ -48,6 +49,49 @@ public final class SphereGeometry {
         int[][] generated = generate(Math.max(1, radius));
         CACHE.put(radius, generated);
         return generated;
+    }
+
+    /**
+     * Every integer point on or inside a solid ball of the given radius,
+     * centered on (0,0,0) - unlike {@link #hollowShellOffsets}'s thin
+     * surface-only shell, this is the full interior volume. Cost scales with
+     * volume (~4/3*pi*r^3) rather than surface area, so it's only ever used
+     * for underwater beacon fields, which are deliberately capped to a small
+     * radius (see beacon-field-underwater-max-radius in config.yml) to keep
+     * this cheap - it's what lets an underwater bubble drain the water out
+     * of its interior when raised, and let it flow back in when lowered.
+     * Results are cached per radius, same as the shell offsets.
+     */
+    public static synchronized int[][] solidBallOffsets(int radius) {
+        int[][] cached = BALL_CACHE.get(radius);
+        if (cached != null) {
+            return cached;
+        }
+        int[][] generated = generateBall(Math.max(0, radius));
+        BALL_CACHE.put(radius, generated);
+        return generated;
+    }
+
+    private static int[][] generateBall(int radius) {
+        List<int[]> points = new ArrayList<>();
+        long r2 = (long) radius * radius;
+        for (int x = -radius; x <= radius; x++) {
+            long remX = r2 - (long) x * x;
+            if (remX < 0) {
+                continue;
+            }
+            for (int y = -radius; y <= radius; y++) {
+                long remY = remX - (long) y * y;
+                if (remY < 0) {
+                    continue;
+                }
+                int zMax = (int) Math.sqrt((double) remY);
+                for (int z = -zMax; z <= zMax; z++) {
+                    points.add(new int[]{x, y, z});
+                }
+            }
+        }
+        return points.toArray(new int[0][]);
     }
 
     /**

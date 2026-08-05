@@ -32,14 +32,16 @@ public final class ForceFieldZone {
         private final int z;
         private int radius;
         private boolean enabled;
+        private final boolean underwater;
 
-        public SphereComponent(UUID id, int x, int y, int z, int radius, boolean enabled) {
+        public SphereComponent(UUID id, int x, int y, int z, int radius, boolean enabled, boolean underwater) {
             this.id = id;
             this.x = x;
             this.y = y;
             this.z = z;
             this.radius = radius;
             this.enabled = enabled;
+            this.underwater = underwater;
         }
 
         public UUID getId() {
@@ -73,6 +75,18 @@ public final class ForceFieldZone {
 
         void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+
+        /**
+         * True if this beacon was placed underwater - determined once, at
+         * placement time, and permanent for this component's lifetime (never
+         * re-checked on resize). Caps its own radius to
+         * beacon-field-underwater-max-radius and, while raised, drains any
+         * water found in its interior volume (refilling it again once
+         * lowered) - see FieldManager's interior drain/refill machinery.
+         */
+        public boolean isUnderwater() {
+            return underwater;
         }
     }
 

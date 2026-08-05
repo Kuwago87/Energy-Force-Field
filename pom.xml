@@ -6,7 +6,7 @@
 
     <groupId>com.tonyk</groupId>
     <artifactId>forcefield</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.7</version>
     <packaging>jar</packaging>
 
     <name>EFF</name>

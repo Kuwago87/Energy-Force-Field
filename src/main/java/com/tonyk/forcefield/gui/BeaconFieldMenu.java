@@ -25,7 +25,9 @@ import java.util.UUID;
  * beacon's own bubble. Changing size applies live if this beacon is already
  * raised - the shell transitions straight to the new size without ever
  * needing to be manually turned back on. None of this ever touches a merged
- * neighbor's own state.
+ * neighbor's own state. A beacon placed underwater has its own radius
+ * capped (every size button clamps down to it) and drains the water out of
+ * its interior while raised, refilling it once lowered.
  */
 public final class BeaconFieldMenu {
 
@@ -55,15 +57,22 @@ public final class BeaconFieldMenu {
             inventory.setItem(slot, filler);
         }
 
+        boolean underwater = component != null && component.isUnderwater();
+        int cap = fields.underwaterMaxRadius();
         int small = radiusConfig(plugin, "beacon-field-radius-small", 50);
         int medium = radiusConfig(plugin, "beacon-field-radius-medium", 150);
         int large = radiusConfig(plugin, "beacon-field-radius-large", 250);
+        if (underwater) {
+            small = Math.min(small, cap);
+            medium = Math.min(medium, cap);
+            large = Math.min(large, cap);
+        }
         int otherBeacons = zone != null ? zone.getSphereComponents().size() - 1 : 0;
 
         inventory.setItem(ON_OFF_SLOT, onOffIcon(component, otherBeacons));
-        inventory.setItem(SMALL_SLOT, radiusIcon("Small", Material.SMALL_AMETHYST_BUD, component, small));
-        inventory.setItem(MEDIUM_SLOT, radiusIcon("Medium", Material.MEDIUM_AMETHYST_BUD, component, medium));
-        inventory.setItem(LARGE_SLOT, radiusIcon("Large", Material.AMETHYST_CLUSTER, component, large));
+        inventory.setItem(SMALL_SLOT, radiusIcon("Small", Material.SMALL_AMETHYST_BUD, component, small, underwater));
+        inventory.setItem(MEDIUM_SLOT, radiusIcon("Medium", Material.MEDIUM_AMETHYST_BUD, component, medium, underwater));
+        inventory.setItem(LARGE_SLOT, radiusIcon("Large", Material.AMETHYST_CLUSTER, component, large, underwater));
         inventory.setItem(DELETE_SLOT, deleteIcon(otherBeacons > 0));
 
         return inventory;
@@ -85,6 +94,10 @@ public final class BeaconFieldMenu {
                             component.isEnabled() ? NamedTextColor.DARK_GREEN : NamedTextColor.GRAY))
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("Radius: " + component.getRadius() + " blocks", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+            if (component.isUnderwater()) {
+                lore.add(Component.text("Underwater - drains its interior while", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("raised, refills it when lowered", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+            }
             if (otherBeacons > 0) {
                 lore.add(Component.text("Merged with " + otherBeacons + " other beacon(s)", NamedTextColor.LIGHT_PURPLE)
                         .decoration(TextDecoration.ITALIC, false));
@@ -102,7 +115,7 @@ public final class BeaconFieldMenu {
         return item;
     }
 
-    private static ItemStack radiusIcon(String label, Material material, ForceFieldZone.SphereComponent component, int radius) {
+    private static ItemStack radiusIcon(String label, Material material, ForceFieldZone.SphereComponent component, int radius, boolean underwater) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         boolean current = component != null && component.getRadius() == radius;
@@ -118,6 +131,10 @@ public final class BeaconFieldMenu {
         lore.add(Component.text("Click to set this beacon's own bubble to this size", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
         lore.add(Component.text("(applies live if it's already raised - no need to", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
         lore.add(Component.text("turn it back on - a merged neighbor is left alone)", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
+        if (underwater) {
+            lore.add(Component.text("Capped underwater - drains its own", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("interior, so it stays cheap to process", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+        }
         meta.lore(lore);
 
         item.setItemMeta(meta);

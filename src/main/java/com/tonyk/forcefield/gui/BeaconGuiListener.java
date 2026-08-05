@@ -158,12 +158,18 @@ public final class BeaconGuiListener implements Listener {
             messages.send(player, "no-permission");
             return;
         }
-        if (component.getRadius() == radius) {
+        // FieldManager clamps an underwater component's radius on its own,
+        // but the raw config value (e.g. Large's 250) is what gets passed in
+        // here - compute the actual value it'll end up at too, so the
+        // "resized to" message and the no-op check below both reflect what
+        // really happens instead of what was clicked.
+        int effectiveRadius = component.isUnderwater() ? Math.min(radius, fields.underwaterMaxRadius()) : radius;
+        if (component.getRadius() == effectiveRadius) {
             return;
         }
         boolean wasEnabled = component.isEnabled();
         fields.setComponentRadius(zone, component, radius);
-        messages.send(player, "beacon-field-resized", "name", zone.getName(), "radius", String.valueOf(radius));
+        messages.send(player, "beacon-field-resized", "name", zone.getName(), "radius", String.valueOf(effectiveRadius));
         if (wasEnabled) {
             player.sendMessage(Component.text("This beacon's bubble is adjusting to its new size now - no need to turn it back on.", NamedTextColor.GRAY));
         }
